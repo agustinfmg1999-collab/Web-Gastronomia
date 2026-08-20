@@ -1,4 +1,4 @@
-const CACHE_NAME = 'elpatio-v1';
+const CACHE_NAME = 'elpatio-v2';
 const ASSETS = [
   '/',
   '/cliente.html',
