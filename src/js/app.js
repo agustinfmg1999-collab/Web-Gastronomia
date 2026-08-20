@@ -108,7 +108,6 @@ function createPromoCard(promo, isActive = false) {
       <div class="product-img-wrapper">
         <img src="${promo.image || 'https://via.placeholder.com/400'}" alt="${promo.name}" loading="lazy">
         <span class="promo-badge">${promo.badge || 'Promoción'}</span>
-        <span class="product-rating">★ ${promo.rating || '5.0'}</span>
       </div>
       <div class="product-content">
         <h4>${promo.name}</h4>
@@ -263,7 +262,6 @@ function createProductCard(product, isActive = false) {
         <div class="badges-container">
           ${badgesHtml}
         </div>
-        <span class="product-rating">★ ${product.rating || '4.5'}</span>
       </div>
       <div class="product-content">
         <h4>${product.name || product.nombre}</h4>
@@ -393,9 +391,6 @@ function openProductDetail(product) {
   const price = typeof product.price === 'number' ? product.price.toFixed(2) : '0.00';
   document.getElementById('detailPrice').textContent = `$${price}`;
   
-  const ratingEl = document.getElementById('detailRating');
-  if (ratingEl) ratingEl.textContent = `★ ${product.rating || '4.5'}`;
-
   const badgesContainer = document.getElementById('detailBadges');
   if (badgesContainer) {
     if (product.badge) {
