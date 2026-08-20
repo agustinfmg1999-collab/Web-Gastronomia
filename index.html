@@ -674,6 +674,7 @@
           fetch('/api/pedidos'),
           fetch('/api/mozo')
         ]);
+        if (handleAuthError(resPedidos)) return;
         const serverMesas = await resMesas.json();
         if (serverMesas && serverMesas.length) mesasCache = serverMesas;
         rawPedidosCache = await resPedidos.json();
@@ -850,11 +851,12 @@
       );
 
       for (let p of pedidosMesa) {
-        await fetch(`/api/pedidos/${p.id}`, {
+        const res = await fetch(`/api/pedidos/${p.id}`, {
           method: 'PATCH',
           headers: adminHeaders(),
           body: JSON.stringify({ pagado: true, estado: 'entregado' })
         });
+        if (handleAuthError(res)) return;
       }
 
       socket.emit('mesa_liberada', { mesa: nombreMesa });
@@ -862,12 +864,23 @@
       fetchDashboardData();
     }
 
+    function handleAuthError(res) {
+      if (res.status === 401) {
+        authToken = null;
+        localStorage.removeItem('admin_token');
+        document.getElementById('loginOverlay').style.display = 'flex';
+        return true;
+      }
+      return false;
+    }
+
     async function updateStatus(id, estado) {
-      await fetch(`/api/pedidos/${id}`, {
+      const res = await fetch(`/api/pedidos/${id}`, {
         method: 'PATCH',
         headers: adminHeaders(),
         body: JSON.stringify({ estado })
       });
+      if (handleAuthError(res)) return;
       fetchDashboardData();
     }
 
