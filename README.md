@@ -1,67 +1,60 @@
-# 🍽️ Web Gastronómico - Base Marca Blanca
+# Web Gastronomico - Sistema de Menu Digital
 
-Estructura modular y personalizable diseñada para desplegar cartas digitales interactivas con códigos QR por mesa y sistema de llamada a mozo en tiempo real para restaurantes, bares y cafés.
+Sistema completo para restaurantes: menu digital con QR, panel de administracion, cocina, pedidos en tiempo real, resenas, propinas y cierre de caja.
 
----
+## Funcionalidades
 
-## 📂 Estructura del Proyecto
+- **Panel Admin** — Gestionar menu, mesas, QR, promos, historial, ticket, cierre de caja
+- **Menu Digital** — Carta interactiva con carrito, propinas, split de cuenta
+- **Cocina** — Vista de pedidos con estados en tiempo real
+- **Socket.io** — Actualizaciones instantaneas entre admin, cliente y cocina
+- **Auth** — Login protegido para el panel admin
+- **Offline** — Service Worker para funciona sin internet en el cliente
+- **Tickets** — Impresion termica configurable
+- **Backup** — Copias automaticas de seguridad
 
-```text
-web gastronomico/
-├── package.json               # Configuración del paquete y scripts
-├── README.md                  # Guía de instalación y personalización
-├── index.html                 # Punto de entrada HTML con vista previa interactiva
-├── public/
-│   ├── brand/                 # Logos e isotipos del cliente
-│   │   └── logo.svg
-│   └── assets/                # Favicon e imágenes estáticas
-└── src/
-    ├── config/
-    │   └── client.config.js   # ⚙️ ARCHIVO CLAVE: Toda la data y feature flags del local
-    ├── styles/
-    │   ├── theme.css          # 🎨 Variables CSS de color, tipografía y bordes
-    │   └── animations.css     # ☁️ Animaciones de fondo (nubes, luces, partículas)
-    ├── components/
-    │   ├── Navbar.js          # Encabezado con logo e indicador de mesa
-    │   ├── Categories.js      # Selector horizontal de categorías
-    │   ├── ProductCard.js     # Tarjeta de producto con imagen, precio y badge
-    │   ├── ProductModal.js    # Detalle con personalización y reseñas
-    │   ├── CallWaiterModal.js # Modal para llamar al mozo / pedir la cuenta
-    │   ├── BackgroundAnimation.js # Renderizado de fondos animados dinámicos
-    │   └── AdminPanel.js      # Panel Admin para generar QR por mesa y personalizar tema
-    ├── services/
-    │   └── socketService.js   # Servicio de comunicación en tiempo real (WebSockets / Supabase)
-    └── app.js                 # Inicializador principal y selector de vistas
-```
+## Instalacion Local
 
----
-
-## 🚀 Cómo Usar para un Nuevo Cliente
-
-### 1. Personalización de Marca (`src/config/client.config.js`)
-Edita este archivo para configurar:
-- Nombre, eslogan y logo.
-- Paleta de colores primaria, secundaria y fondos.
-- Tipo de animación de fondo (`'clouds'`, `'particles'`, `'glow'`, `'none'`).
-- Activar o desactivar botones (Llamar al mozo, Pedir cuenta, Reseñas).
-- Lista de mesas, categorías y productos del menú.
-
-### 2. Estilos Globales (`src/styles/theme.css`)
-Las variables CSS se inyectan automáticamente desde `client.config.js`, pero puedes modificar los valores por defecto o agregar nuevos tokens en este archivo.
-
-### 3. Probar Localmente
-Podes abrir directamente el archivo `index.html` en el navegador o ejecutar:
 ```bash
-npx serve .
+git clone https://github.com/agustinfmg1999-collab/Web-Gastronomia.git
+cd Web-Gastronomia
+npm install
+npm start
 ```
 
----
+El servidor arranca en `http://localhost:3000`
 
-## 🔔 Sistema de Llamada al Mozo
-El proyecto incluye simulación de sockets e integración lista para conectar con **Socket.io**, **Supabase Realtime** o **Firebase Realtime Database**.
-When a customer presses "Llamar al mozo", an event is emitted with `{ mesaId, mesaNumero, tipo: 'atencion' | 'cuenta' | 'cubiertos', timestamp }`.
+- Admin: `http://localhost:3000`
+- Cliente: `http://localhost:3000/cliente.html?mesa=Mesa%201`
 
----
+## Deploy en Render (Gratis)
 
-## 🖨️ Generador de QR por Mesa
-Ingresa a la pestaña **Panel Admin** en la demo para seleccionar cualquier mesa, visualizar la URL mapeada (`/m/3`) y generar/descargar el código QR listo para imprimir.
+1. Crear cuenta en [render.com](https://render.com) con GitHub
+2. **New > Web Service**
+3. Seleccionar este repo
+4. Configurar:
+   - Build Command: `npm install`
+   - Start Command: `npm start`
+5. Click **Deploy**
+
+Cada push a `main` genera un deploy automatico.
+
+## Deploy Manual (VPS / PC del Local)
+
+```bash
+git clone https://github.com/agustinfmg1999-collab/Web-Gastronomia.git
+cd Web-Gastronomia
+npm install
+npm start
+```
+
+## Contraseña Admin
+
+Por defecto: `admin123` (configurable en `auth.json`)
+
+## Stack
+
+- Node.js + Express
+- Socket.io (tiempo real)
+- HTML/CSS/JS vanilla
+- JSON como almacenamiento
