@@ -178,6 +178,16 @@ app.post('/api/menu', authMiddleware, (req, res) => {
   res.json({ ok: true });
 });
 
+// Endpoints de Config
+const CONFIG_FILE = path.join(__dirname, 'config.json');
+let appConfig = readData(CONFIG_FILE);
+app.get('/api/config', (req, res) => res.json(appConfig));
+app.post('/api/config', authMiddleware, (req, res) => {
+  if (req.body.publicUrl !== undefined) appConfig.publicUrl = req.body.publicUrl;
+  saveData(CONFIG_FILE, appConfig);
+  res.json(appConfig);
+});
+
 // Endpoints de Mesas
 app.get('/api/mesas', (req, res) => res.json(mesas));
 

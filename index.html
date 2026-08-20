@@ -331,8 +331,17 @@
 
       <!-- VISTA: CONFIG TICKET -->
       <div id="viewTicketConfig" style="display: none; flex-direction: column; gap: 20px;">
-        <h2 style="font-size: 1.4rem; color: #fff;">Configuración del Ticket</h2>
+        <h2 style="font-size: 1.4rem; color: #fff;">Configuración</h2>
         <div style="background: #1e1e2e; border-radius: 12px; padding: 24px; max-width: 500px;">
+          <h3 style="color: #f97316; font-size: 1rem; margin-bottom: 14px;">URL Pública (QR / Clientes)</h3>
+          <p style="color: #888; font-size: 0.8rem; margin-bottom: 10px;">URL completa donde los clientes acceden al menú. Los QR apuntan a esta URL.</p>
+          <div style="display: flex; gap: 8px;">
+            <input id="publicUrlInput" type="text" placeholder="https://menu-mi-restaurante.com" style="flex:1; padding: 10px; border-radius: 8px; border: 1px solid #444; background: #2a2a3e; color: #fff;">
+            <button onclick="guardarPublicUrl()" style="background: #3b82f6; color: #fff; border: none; padding: 10px 16px; border-radius: 8px; font-weight: 600; cursor: pointer;">💾</button>
+          </div>
+        </div>
+        <div style="background: #1e1e2e; border-radius: 12px; padding: 24px; max-width: 500px;">
+          <h3 style="color: #f97316; font-size: 1rem; margin-bottom: 14px;">Configuración del Ticket</h3>
           <div style="display: flex; flex-direction: column; gap: 14px;">
             <label style="color: #aaa; font-size: 0.85rem;">Nombre del local</label>
             <input id="tkNombre" type="text" style="padding: 10px; border-radius: 8px; border: 1px solid #444; background: #2a2a3e; color: #fff;">
@@ -1336,7 +1345,11 @@
       renderDashboardMesasGrid();
     }
 
+    let appPublicUrl = '';
+    fetch('/api/config').then(r => r.json()).then(c => { if (c.publicUrl) appPublicUrl = c.publicUrl; }).catch(() => {});
+
     function getBaseUrl() {
+      if (appPublicUrl) return appPublicUrl;
       return `${window.location.protocol}//${window.location.hostname}:${window.location.port}`;
     }
 
@@ -1613,8 +1626,12 @@
 
     async function cargarTicketConfig() {
       try {
-        const res = await fetch('/api/ticket-config');
-        const config = await res.json();
+        const [resTk, resCfg] = await Promise.all([
+          fetch('/api/ticket-config'),
+          fetch('/api/config')
+        ]);
+        const config = await resTk.json();
+        const cfg = await resCfg.json();
         document.getElementById('tkNombre').value = config.nombre || '';
         document.getElementById('tkDireccion').value = config.direccion || '';
         document.getElementById('tkTelefono').value = config.telefono || '';
@@ -1622,8 +1639,25 @@
         document.getElementById('tkEncabezado').value = config.encabezado || '';
         document.getElementById('tkPie').value = config.pie || '';
         document.getElementById('tkLeyenda').value = config.leyenda || '';
+        document.getElementById('publicUrlInput').value = cfg.publicUrl || '';
+        if (cfg.publicUrl) appPublicUrl = cfg.publicUrl;
       } catch (err) {
-        console.error('Error al cargar config ticket:', err);
+        console.error('Error al cargar config:', err);
+      }
+    }
+
+    async function guardarPublicUrl() {
+      const url = document.getElementById('publicUrlInput').value.trim();
+      try {
+        await fetch('/api/config', {
+          method: 'POST',
+          headers: adminHeaders(),
+          body: JSON.stringify({ publicUrl: url })
+        });
+        appPublicUrl = url;
+        alert('URL pública guardada. Los QR ahora apuntarán a: ' + (url || '(URL local)'));
+      } catch (err) {
+        alert('Error al guardar');
       }
     }
 
