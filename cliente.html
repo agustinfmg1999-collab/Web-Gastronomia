@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <!-- Socket.io integrado -->
+  <script src="/socket.io/socket.io.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>El Patio Tapas Bar - Carta Digital</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="./src/styles/theme.css" />
+  <link rel="stylesheet" href="./src/styles/animations.css" />
+  <link rel="stylesheet" href="./src/styles/client.css" />
+</head>
+<body>
+
+  <!-- MARCO CONTENEDOR MÓVIL -->
+  <div class="app-container">
+
+    <!-- Encabezado Principal -->
+    <header class="header">
+      <div class="brand">
+        <div class="brand-logo">🍹</div>
+        <div class="brand-text">
+          <h1>El Patio Tapas Bar</h1>
+          <p>Tapas, Copas & Buenos Momentos</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <span id="mesaBadge" class="mesa-badge"><span class="dot">●</span> Mesa 1</span>
+        <button class="btn-waiter-header" onclick="toggleWaiterModal(true)">
+          🔔 Mozo
+        </button>
+      </div>
+    </header>
+
+    <!-- SECCIÓN MENÚ DEL DÍA & PROMOS -->
+    <section class="promos-section">
+      <div class="promos-header">
+        <h2>🔥 Menú del Día & Promos</h2>
+      </div>
+      <div class="promos-carousel-wrapper">
+        <div id="promosContainer" class="promos-track"></div>
+        <div id="promosDots" class="carousel-controls"></div>
+      </div>
+    </section>
+
+    <!-- Categorías -->
+    <nav class="categories-wrapper">
+      <ul id="categoriesList" class="categories-list"></ul>
+    </nav>
+
+    <!-- Grilla / Carrusel 3D de Productos -->
+    <main class="main-content">
+      <div class="carousel-wrapper">
+        <div id="productsContainer" class="carousel-track"></div>
+        <div id="carouselDots" class="carousel-controls"></div>
+      </div>
+    </main>
+
+    <!-- Botón Flotante del Carrito -->
+    <div id="cartFloatingBtn" class="cart-floating-btn" onclick="toggleCartModal(true)">
+      <div class="cart-info">
+        <span id="cartCount" class="cart-badge">0</span>
+        <span>Ver mi pedido</span>
+      </div>
+      <strong id="cartTotal">$0.00</strong>
+    </div>
+
+    <!-- Botón Flotante de Llamar al Mozo (FAB) -->
+    <button class="fab-call-waiter" onclick="toggleWaiterModal(true)" title="Llamar al mozo">
+      🔔
+    </button>
+
+  </div> <!-- FIN .app-container -->
+
+  <!-- Modal del Carrito -->
+  <div id="cartModal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Tu Pedido</h3>
+        <button onclick="toggleCartModal(false)" class="close-btn">&times;</button>
+      </div>
+      <div id="cartItemsList" class="cart-items-list"></div>
+      <div class="modal-footer">
+        <div class="total-row">
+          <span>Total a pagar:</span>
+          <strong id="modalTotalAmount">$0.00</strong>
+        </div>
+        <div style="width:100%; padding:8px 0; border-top:1px dashed #3f3f46;">
+          <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+            <span style="color:#a1a1aa; font-size:0.8rem;">Dividir cuenta entre:</span>
+            <select id="splitCount" onchange="updateSplitDisplay()" style="padding:4px 8px; border-radius:6px; border:1px solid #3f3f46; background:#18181b; color:#fff; font-size:0.8rem;">
+              <option value="1">1 persona</option>
+              <option value="2">2 personas</option>
+              <option value="3">3 personas</option>
+              <option value="4">4 personas</option>
+              <option value="5">5 personas</option>
+              <option value="6">6 personas</option>
+            </select>
+          </div>
+          <p id="splitDisplay" style="color:#22c55e; font-size:0.9rem; font-weight:600; display:none;"></p>
+        </div>
+        <div style="width:100%; margin-bottom:10px;">
+          <p style="color:#a1a1aa; font-size:0.8rem; margin-bottom:6px;">¿Propina? (opcional)</p>
+          <div style="display:flex; gap:6px;">
+            <button class="tip-btn" data-tip="0" onclick="selectTip(0, this)" style="flex:1; padding:6px; border-radius:6px; border:1px solid #3f3f46; background:#18181b; color:#ccc; cursor:pointer; font-size:0.8rem;">Sin propina</button>
+            <button class="tip-btn" data-tip="10" onclick="selectTip(10, this)" style="flex:1; padding:6px; border-radius:6px; border:1px solid #3f3f46; background:#18181b; color:#ccc; cursor:pointer; font-size:0.8rem;">10%</button>
+            <button class="tip-btn" data-tip="15" onclick="selectTip(15, this)" style="flex:1; padding:6px; border-radius:6px; border:1px solid #3f3f46; background:#18181b; color:#ccc; cursor:pointer; font-size:0.8rem;">15%</button>
+            <button class="tip-btn" data-tip="20" onclick="selectTip(20, this)" style="flex:1; padding:6px; border-radius:6px; border:1px solid #3f3f46; background:#18181b; color:#ccc; cursor:pointer; font-size:0.8rem;">20%</button>
+          </div>
+        </div>
+        <button id="sendOrderBtn" class="btn-confirm">Enviar Pedido a Cocina</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de Llamar al Mozo -->
+  <div id="waiterModal" class="modal-overlay">
+    <div class="modal-card modal-center">
+      <div style="font-size:2.8rem; margin-bottom:8px;">🔔</div>
+      <h3 style="font-size:1.4rem; font-weight:700; margin-bottom:4px;">Llamar al Mozo</h3>
+      <p style="color:#a1a1aa; font-size:0.85rem; margin-bottom:20px;">Solicitud en vivo para la mesa</p>
+      
+      <div class="waiter-options" style="display:flex; flex-direction:column; gap:10px; width:100%;">
+        <button class="btn-option primary" onclick="callWaiter('Llamar para Pedir / Consulta')">
+          📱 Llamar para Pedir / Consulta
+        </button>
+        <button class="btn-option" onclick="callWaiter('Pedir la Cuenta')">
+          💳 Pedir la Cuenta
+        </button>
+        <button class="btn-option" onclick="callWaiter('Pedir Cubiertos / Agua')">
+          🍴 Pedir Cubiertos / Agua
+        </button>
+      </div>
+      
+      <button onclick="toggleWaiterModal(false)" class="btn-cancel" style="margin-top:16px; background:transparent; border:none; color:#a1a1aa; cursor:pointer; font-weight:600;">
+        Cancelar / Cerrar
+      </button>
+    </div>
+  </div>
+
+  <!-- Modal de Detalle de Producto con Opciones -->
+  <div id="productDetailModal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="detailTitle">Detalle del Producto</h3>
+        <button onclick="toggleProductDetailModal(false)" class="close-btn">&times;</button>
+      </div>
+      <div class="product-detail-body">
+        <div class="product-img-wrapper detail-img-wrapper">
+          <img id="detailImage" src="" alt="Producto">
+          <div id="detailBadges" class="badges-container"></div>
+          <span id="detailRating" class="product-rating">★ 4.5</span>
+        </div>
+        
+        <p id="detailDesc" class="detail-desc"></p>
+
+        <!-- Contenedor dinámico de opciones configurables -->
+        <div id="detailOptions" class="product-options-container"></div>
+
+        <!-- Campo para notas / aclaraciones -->
+        <div class="detail-notes-wrapper">
+          <label for="detailNotes">Aclaraciones especiales (opcional):</label>
+          <input type="text" id="detailNotes" placeholder="Ej: Sin sal, salsa aparte, etc." maxlength="120" />
+        </div>
+
+        <div class="detail-footer">
+          <span id="detailPrice" class="detail-price">$0.00</span>
+          <button id="detailAddBtn" class="btn-confirm">Agregar al Pedido</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Despedida y Reseña -->
+  <div id="farewellModal" class="modal-overlay" style="position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:9999; justify-content:center; align-items:center;">
+    <div style="background:#1e1e2e; border-radius:16px; padding:28px 24px; max-width:380px; width:90%; text-align:center; box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+      <div style="font-size:3rem; margin-bottom:8px;">👋</div>
+      <h2 style="color:#fff; font-size:1.4rem; margin-bottom:6px;">¡Gracias por visitarnos!</h2>
+      <p style="color:#a1a1aa; font-size:0.9rem; margin-bottom:20px;">Esperamos que hayas disfrutado tu experiencia en <strong>El Patio Tapas Bar</strong>.</p>
+
+      <p id="farewellTimer" style="color:#f97316; font-size:0.8rem; margin-bottom:12px;"></p>
+
+      <p style="color:#ccc; font-size:0.85rem; margin-bottom:8px;">¿Cómo fue tu experiencia?</p>
+      <div id="starRating" style="display:flex; justify-content:center; gap:6px; margin-bottom:16px;">
+        <span class="star-btn" data-star="1" onclick="setStars(1)" style="font-size:2rem; cursor:pointer; color:#555; transition:color 0.2s;">★</span>
+        <span class="star-btn" data-star="2" onclick="setStars(2)" style="font-size:2rem; cursor:pointer; color:#555; transition:color 0.2s;">★</span>
+        <span class="star-btn" data-star="3" onclick="setStars(3)" style="font-size:2rem; cursor:pointer; color:#555; transition:color 0.2s;">★</span>
+        <span class="star-btn" data-star="4" onclick="setStars(4)" style="font-size:2rem; cursor:pointer; color:#555; transition:color 0.2s;">★</span>
+        <span class="star-btn" data-star="5" onclick="setStars(5)" style="font-size:2rem; cursor:pointer; color:#555; transition:color 0.2s;">★</span>
+      </div>
+
+      <input id="reviewName" type="text" placeholder="Tu nombre (opcional)..." maxlength="40" style="width:100%; padding:10px; border-radius:8px; border:1px solid #444; background:#2a2a3e; color:#fff; font-size:0.9rem; margin-bottom:10px; box-sizing:border-box;" />
+
+      <textarea id="reviewText" placeholder="Contanos tu opinión (opcional)..." rows="3" style="width:100%; padding:10px; border-radius:8px; border:1px solid #444; background:#2a2a3e; color:#fff; font-size:0.9rem; resize:none; margin-bottom:16px; box-sizing:border-box;"></textarea>
+
+      <div style="display:flex; gap:10px;">
+        <button onclick="enviarResena()" style="flex:1; background:#22c55e; color:#fff; border:none; padding:12px; border-radius:8px; font-weight:600; cursor:pointer; font-size:0.95rem;">Enviar Reseña</button>
+        <button onclick="cerrarDespedida()" style="flex:1; background:transparent; border:1px solid #555; color:#a1a1aa; padding:12px; border-radius:8px; cursor:pointer; font-size:0.95rem;">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notificación Pedido Listo -->
+  <div id="orderReadyToast" style="position:fixed; top:20px; left:50%; transform:translateX(-50%); background:#22c55e; color:#fff; padding:14px 24px; border-radius:12px; font-weight:600; font-size:1rem; z-index:10001; box-shadow:0 4px 20px rgba(0,0,0,0.4); display:none; text-align:center; max-width:90%; animation: toastIn 0.4s ease;">
+    ✅ ¡Tu pedido está listo!
+  </div>
+  <style>
+    @keyframes toastIn { from { opacity:0; transform:translateX(-50%) translateY(-20px); } to { opacity:1; transform:translateX(-50%) translateY(0); } }
+    @keyframes toastOut { from { opacity:1; transform:translateX(-50%) translateY(0); } to { opacity:0; transform:translateX(-50%) translateY(-20px); } }
+  </style>
+
+  <!-- Sincronización de Datos y Carga Dinámica -->
+  <script>
+    const socket = io();
+
+    socket.on('menu_updated', () => {
+      cargarMenuCliente();
+    });
+
+    socket.on('dish_status_updated', (data) => {
+      if (window.MENU_DATA && window.MENU_DATA.products) {
+        const product = window.MENU_DATA.products.find(p => String(p.id) === String(data.dishId));
+        if (product) {
+          product.disponible = data.is_available;
+          renderProducts(getProductsByCategory('Todos'));
+        }
+      }
+    });
+
+    socket.on('pedido_listo', (data) => {
+      if (data.mesa && data.mesa.toLowerCase() === currentMesa.toLowerCase()) {
+        showToast('✅ ¡Tu pedido está listo!');
+      }
+    });
+
+    function showToast(msg) {
+      const toast = document.getElementById('orderReadyToast');
+      toast.textContent = msg;
+      toast.style.display = 'block';
+      toast.style.animation = 'toastIn 0.4s ease';
+      setTimeout(() => {
+        toast.style.animation = 'toastOut 0.4s ease forwards';
+        setTimeout(() => { toast.style.display = 'none'; }, 400);
+      }, 4000);
+    }
+
+    let selectedStars = 5;
+    const urlParams = new URLSearchParams(window.location.search);
+    let currentMesa = urlParams.get('mesa') || 'Mesa 1';
+
+    let farewellTimeout = null;
+    let farewellInterval = null;
+
+    socket.on('mesa_liberada', (data) => {
+      if (data.mesa && data.mesa.toLowerCase() === currentMesa.toLowerCase()) {
+        if (typeof clearCart === 'function') clearCart();
+        selectedStars = 5;
+        document.getElementById('reviewText').value = '';
+        document.getElementById('reviewName').value = '';
+        setStars(5);
+        const modal = document.getElementById('farewellModal');
+        modal.classList.add('active');
+
+        let remaining = 180;
+        updateTimerDisplay(remaining);
+        clearInterval(farewellInterval);
+        clearTimeout(farewellTimeout);
+        farewellInterval = setInterval(() => {
+          remaining--;
+          updateTimerDisplay(remaining);
+          if (remaining <= 0) {
+            clearInterval(farewellInterval);
+            cerrarDespedida();
+          }
+        }, 1000);
+        farewellTimeout = setTimeout(() => {
+          clearInterval(farewellInterval);
+          cerrarDespedida();
+        }, 180000);
+      }
+    });
+
+    function updateTimerDisplay(seconds) {
+      const m = Math.floor(seconds / 60);
+      const s = seconds % 60;
+      const el = document.getElementById('farewellTimer');
+      if (el) el.textContent = `Esta ventana se cerrará en ${m}:${s.toString().padStart(2, '0')}`;
+    }
+
+    function setStars(n) {
+      selectedStars = n;
+      document.querySelectorAll('.star-btn').forEach(s => {
+        const val = parseInt(s.getAttribute('data-star'));
+        s.style.color = val <= n ? '#eab308' : '#555';
+      });
+    }
+
+    async function enviarResena() {
+      const texto = document.getElementById('reviewText').value.trim();
+      const nombre = document.getElementById('reviewName').value.trim();
+      try {
+        await fetch('/api/resenas', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mesa: currentMesa, estrellas: selectedStars, texto, nombre })
+        });
+      } catch (err) {
+        console.error('Error al enviar resena:', err);
+      }
+      cerrarDespedida();
+    }
+
+    function cerrarDespedida() {
+      clearInterval(farewellInterval);
+      clearTimeout(farewellTimeout);
+      document.getElementById('farewellModal').classList.remove('active');
+    }
+
+    async function cargarMenuCliente() {
+      try {
+        const response = await fetch('/api/menu');
+        if (response.ok) {
+          const data = await response.json();
+          window.MENU_DATA = data; // { categories, products, promos }
+        }
+      } catch (err) {
+        console.error('Error al cargar el menú desde el servidor, usando respaldo local:', err);
+      } finally {
+        // Inicializa la interfaz de la aplicación del cliente (definida en app.js)
+        if (typeof initClientApp === 'function') {
+          initClientApp();
+        }
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', cargarMenuCliente);
+
+    function toggleCartModal(show) {
+      const modal = document.getElementById('cartModal');
+      if (modal) modal.classList.toggle('active', show);
+    }
+
+    function toggleWaiterModal(show) {
+      const modal = document.getElementById('waiterModal');
+      if (modal) modal.classList.toggle('active', show);
+    }
+
+    function toggleProductDetailModal(show) {
+      const modal = document.getElementById('productDetailModal');
+      if (modal) modal.classList.toggle('active', show);
+    }
+
+    function callWaiter(tipo) {
+      alert(`Mozo notificado para: ${tipo}`);
+      toggleWaiterModal(false);
+    }
+
+    let selectedTipPercent = 0;
+
+    function selectTip(percent, btn) {
+      selectedTipPercent = percent;
+      document.querySelectorAll('.tip-btn').forEach(b => {
+        b.style.background = '#18181b';
+        b.style.color = '#ccc';
+        b.style.borderColor = '#3f3f46';
+      });
+      btn.style.background = '#22c55e';
+      btn.style.color = '#fff';
+      btn.style.borderColor = '#22c55e';
+    }
+
+    function updateSplitDisplay() {
+      const count = parseInt(document.getElementById('splitCount').value);
+      const el = document.getElementById('splitDisplay');
+      if (count > 1) {
+        const totalText = document.getElementById('modalTotalAmount').textContent;
+        const total = parseFloat(totalText.replace('$', '')) || 0;
+        const perPerson = (total / count).toFixed(2);
+        el.textContent = `$${perPerson} por persona`;
+        el.style.display = 'block';
+      } else {
+        el.style.display = 'none';
+      }
+    }
+  </script>
+
+  <!-- Lógica Principal Aplicación del Cliente -->
+  <script src="./src/js/app.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+node_modules/
+backups/
+pedidos.json
+mozo.json
+mesas.json
+menu.json
+ticket.json
+resenas.json
+auth.json
+.env
+*.log

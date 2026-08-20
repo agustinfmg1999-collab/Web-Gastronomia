@@ -1,0 +1,1787 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <!-- Script de Socket.io integrado -->
+  <script src="/socket.io/socket.io.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Panel de Administración - El Patio</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Outfit', sans-serif; }
+    
+    body {
+      background-color: #0c0c0e;
+      color: #f4f4f5;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .app-container { display: flex; height: 100vh; width: 100vw; }
+
+    /* SIDEBAR */
+    .sidebar {
+      width: 240px; background-color: #121215; border-right: 1px solid #1f1f23;
+      padding: 24px 16px; display: flex; flex-direction: column; flex-shrink: 0;
+    }
+    .brand { margin-bottom: 32px; padding-left: 8px; }
+    .brand-title { font-size: 1.4rem; font-weight: 700; color: #ea580c; line-height: 1.1; }
+    .brand-sub { font-size: 0.8rem; color: #8f8f9d; letter-spacing: 0.5px; }
+
+    .nav-list { display: flex; flex-direction: column; gap: 6px; }
+    .nav-btn {
+      display: flex; align-items: center; gap: 12px; padding: 12px 14px;
+      background: transparent; border: none; border-radius: 10px;
+      color: #9494a0; font-size: 0.95rem; font-weight: 500;
+      cursor: pointer; transition: all 0.2s ease; text-align: left; width: 100%;
+    }
+    .nav-btn:hover { background: #1a1a1e; color: #f4f4f5; }
+    .nav-btn.active { background: #f97316; color: #ffffff; font-weight: 600; box-shadow: 0 4px 14px rgba(249, 115, 22, 0.3); }
+
+    /* CONTENIDO PRINCIPAL */
+    .main-content { flex: 1; padding: 28px 36px; overflow-y: auto; background-color: #0c0c0e; }
+    .page-title { font-size: 1.8rem; font-weight: 700; color: #ffffff; margin-bottom: 20px; }
+    .top-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #1f1f23; }
+
+    /* ALERTAS DE MOZO */
+    .alertas-mozo-top { background: #121215; border: 1px solid #27272a; border-radius: 14px; padding: 16px 20px; margin-bottom: 24px; }
+    .alertas-mozo-header { font-size: 1.1rem; font-weight: 700; color: #f97316; display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+    .alertas-container-flex { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+    .card-waiter-top { background: #2a0f0f; border: 1px solid #ef4444; border-radius: 10px; padding: 10px 16px; display: flex; align-items: center; gap: 16px; box-shadow: 0 0 10px rgba(239, 68, 68, 0.2); }
+
+    /* GRILLA DASHBOARD */
+    .mesas-dashboard-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .card-mesa-dash { background: #121215; border: 1px solid #27272a; border-radius: 14px; padding: 18px; display: flex; flex-direction: column; justify-content: space-between; height: 140px; cursor: pointer; transition: all 0.2s ease; position: relative; }
+    .card-mesa-dash:hover { transform: translateY(-3px); border-color: #3f3f46; }
+    .card-mesa-dash.selected { border-color: #f97316; box-shadow: 0 0 12px rgba(249, 115, 22, 0.3); }
+    .card-mesa-dash.state-activa { border-top: 4px solid #22c55e; }
+    .card-mesa-dash.state-reservada { border-top: 4px solid #eab308; }
+    .card-mesa-dash.state-libre { border-top: 4px solid #f4f4f5; }
+
+    .mesa-dash-header { display: flex; justify-content: space-between; align-items: center; }
+    .mesa-dash-title { font-size: 1.2rem; font-weight: 700; color: #fff; }
+    .badge-status { font-size: 0.72rem; padding: 3px 8px; border-radius: 20px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; cursor: pointer; user-select: none; }
+    .badge-activa { background: #14532d; color: #22c55e; border: 1px solid #16a34a; }
+    .badge-reservada { background: #422006; color: #eab308; border: 1px solid #ca8a04; }
+    .badge-libre { background: #27272a; color: #ffffff; border: 1px solid #52525b; }
+    .mesa-dash-info { margin-top: 8px; font-size: 0.85rem; color: #a1a1aa; }
+    .mesa-dash-total { font-size: 1.1rem; font-weight: 800; color: #f97316; margin-top: 4px; }
+
+    .panel-detalle-mesa { background: #121215; border: 1px solid #1f1f23; border-radius: 16px; padding: 20px; }
+    .card-order { background: #18181b; border: 1px solid #27272a; border-radius: 10px; padding: 14px; margin-bottom: 12px; }
+    .card-order.pendiente { border-left: 4px solid #eab308; }
+    .card-order.en_preparacion { border-left: 4px solid #3b82f6; }
+    .card-order.entregado { border-left: 4px solid #22c55e; opacity: 0.85; }
+
+    .btn-action { border: none; padding: 8px 14px; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 0.85rem; color: #fff; }
+    .btn-cobrar { background: #22c55e; width: 100%; padding: 12px; font-size: 1rem; border-radius: 10px; margin-top: 14px; }
+    .btn-cobrar:hover { background: #16a34a; }
+
+    /* ESTILOS SECCIÓN MENÚ Y PROMOS */
+    .menu-cat-filter { display: flex; gap: 8px; overflow-x: auto; margin-bottom: 20px; padding-bottom: 6px; }
+    .cat-pill { background: #18181b; border: 1px solid #27272a; color: #a1a1aa; padding: 8px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; cursor: pointer; white-space: nowrap; transition: all 0.2s; }
+    .cat-pill:hover, .cat-pill.active { background: #ea580c; color: #fff; border-color: #ea580c; }
+
+    .menu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 20px; }
+    .menu-card { background: #121215; border: 1px solid #27272a; border-radius: 14px; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; position: relative; }
+    .menu-card.agotado { opacity: 0.55; }
+    .menu-card-img { width: 100%; height: 140px; object-fit: cover; background: #1f1f23; }
+    .menu-card-body { padding: 16px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+    .menu-card-title { font-size: 1.1rem; font-weight: 700; color: #fff; display: flex; justify-content: space-between; align-items: start; }
+    .menu-card-price { font-size: 1.1rem; font-weight: 800; color: #f97316; }
+    .menu-card-desc { font-size: 0.82rem; color: #a1a1aa; line-height: 1.3; margin-bottom: 10px; }
+    .menu-card-badge { font-size: 0.7rem; font-weight: 700; background: #ea580c22; color: #f97316; border: 1px solid #ea580c55; padding: 2px 8px; border-radius: 12px; width: fit-content; }
+    .menu-card-actions { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-top: 1px solid #1f1f23; background: #16161a; }
+    
+    /* MODALES Y LISTA MESAS */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); display: flex; justify-content: center; align-items: center; z-index: 999; opacity: 0; pointer-events: none; transition: opacity 0.2s ease; }
+    .modal-overlay.active { opacity: 1; pointer-events: auto; }
+    .modal-content { background: #121215; border: 1px solid #27272a; width: 100%; max-width: 500px; border-radius: 16px; padding: 24px; max-height: 90vh; overflow-y: auto; }
+    .form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+    .form-group label { font-size: 0.85rem; color: #a1a1aa; font-weight: 600; }
+    .form-group input, .form-group select, .form-group textarea { background: #18181b; border: 1px solid #27272a; color: #fff; padding: 10px 12px; border-radius: 8px; font-size: 0.9rem; }
+
+    /* CHECKBOXES DE DÍAS */
+    .dias-checkbox-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      background: #18181b;
+      border: 1px solid #27272a;
+      padding: 10px;
+      border-radius: 8px;
+    }
+    .dia-checkbox-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.82rem;
+      color: #e4e4e7;
+      cursor: pointer;
+    }
+    .dia-checkbox-label input {
+      accent-color: #f97316;
+      cursor: pointer;
+    }
+
+    /* LISTA FORMATO TABLA DE MESAS */
+    .mesas-list-container { background: #121215; border: 1px solid #27272a; border-radius: 14px; overflow: hidden; margin-top: 10px; }
+    .mesa-item-row { display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; border-bottom: 1px solid #1f1f23; transition: background 0.2s; }
+    .mesa-item-row:last-child { border-bottom: none; }
+    .mesa-item-row:hover { background: #18181b; }
+
+    @media (max-width: 768px) {
+      .app-layout { flex-direction: column; }
+      .sidebar { width: 100%; height: auto; flex-direction: row; overflow-x: auto; padding: 8px; position: relative; }
+      .sidebar .nav-btn { flex-direction: row; white-space: nowrap; padding: 8px 14px; font-size: 0.8rem; }
+      .sidebar .nav-btn span { font-size: 0.9rem; }
+      .main-content { padding: 12px; }
+      .menu-grid { grid-template-columns: 1fr !important; }
+      .mesas-grid { grid-template-columns: 1fr !important; }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="loginOverlay" style="position:fixed; inset:0; background:#0f0f1a; z-index:10000; display:flex; justify-content:center; align-items:center;">
+    <div style="background:#1e1e2e; border-radius:16px; padding:32px; max-width:360px; width:90%; text-align:center;">
+      <div style="font-size:2.5rem; margin-bottom:12px;">🔒</div>
+      <h2 style="color:#fff; font-size:1.3rem; margin-bottom:16px;">Panel Admin</h2>
+      <input id="loginPassword" type="password" placeholder="Contraseña" style="width:100%; padding:12px; border-radius:8px; border:1px solid #444; background:#2a2a3e; color:#fff; font-size:1rem; margin-bottom:14px; box-sizing:border-box;" onkeydown="if(event.key==='Enter')doLogin()">
+      <button onclick="doLogin()" style="width:100%; background:#22c55e; color:#fff; border:none; padding:12px; border-radius:8px; font-weight:600; cursor:pointer; font-size:1rem;">Ingresar</button>
+      <p id="loginError" style="color:#ef4444; font-size:0.85rem; margin-top:10px; display:none;">Contraseña incorrecta</p>
+    </div>
+  </div>
+
+  <div class="app-container">
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-title">El Patio</div>
+        <div class="brand-sub">Tapas Bar</div>
+      </div>
+
+      <nav class="nav-list">
+        <button id="navDashboard" class="nav-btn active" onclick="switchTab('dashboard')">
+          <span>🎛️</span> Dashboard
+        </button>
+        <button id="navMenu" class="nav-btn" onclick="switchTab('menu')">
+          <span>🍴</span> Menú
+        </button>
+        <button id="navQrs" class="nav-btn" onclick="switchTab('qrs')">
+          <span>📱</span> Mesas y QR
+        </button>
+        <button id="navResenas" class="nav-btn" onclick="switchTab('resenas')">
+          <span>💬</span> Reseñas
+        </button>
+        <button id="navPromos" class="nav-btn" onclick="switchTab('promos')">
+          <span>🏷️</span> Promos
+        </button>
+        <button id="navHistorial" class="nav-btn" onclick="switchTab('historial')">
+          <span>📋</span> Historial
+        </button>
+        <button id="navTicket" class="nav-btn" onclick="switchTab('ticket')">
+          <span>🖨️</span> Config Ticket
+        </button>
+      </nav>
+    </aside>
+
+    <!-- CONTENIDO PRINCIPAL -->
+    <main class="main-content">
+      
+      <div class="top-header">
+        <h1 class="page-title">PANEL DE ADMINISTRACIÓN -</h1>
+        <div style="display: flex; gap: 12px; align-items: center;">
+          <button id="btnSoundToggle" onclick="toggleAudio()" style="background: #18181b; border: 1px solid #27272a; color: #f4f4f5; padding: 8px 14px; border-radius: 20px; cursor: pointer; font-size: 0.85rem; font-weight: 600;">
+            🔇 Sonido: Off
+          </button>
+          <span style="font-size: 0.85rem; color: #22c55e; background: #14532d; padding: 4px 12px; border-radius: 20px; font-weight: 600;">● En vivo</span>
+        </div>
+      </div>
+
+      <!-- VISTA: DASHBOARD PRINCIPAL -->
+      <div id="viewDashboard">
+        <div class="alertas-mozo-top">
+          <div class="alertas-mozo-header">
+            <span>🔔 Alertas de Mozos</span>
+          </div>
+          <div id="waiterCallsContainer" class="alertas-container-flex">
+            <p style="color:#71717a; font-size: 0.9rem;">Sin llamadas pendientes.</p>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+          <h2 style="font-size: 1.2rem; color: #fff;">Estado de Mesas</h2>
+          <div style="display: flex; gap: 10px; font-size: 0.8rem; color: #a1a1aa;">
+            <span>🟢 Activas (<strong id="cntActivas">0</strong>)</span> | 
+            <span>🟡 Reservadas (<strong id="cntReservadas">0</strong>)</span> | 
+            <span>⚪ Libres (<strong id="cntLibres">0</strong>)</span>
+          </div>
+        </div>
+
+        <div id="gridMesasDashboard" class="mesas-dashboard-grid"></div>
+
+        <div class="panel-detalle-mesa">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid #27272a; padding-bottom: 10px;">
+            <h3 id="detalleMesaTitulo" style="color: #f97316; font-size: 1.3rem;">Seleccioná una mesa</h3>
+            <div id="badgeMesaSeleccionada"></div>
+          </div>
+
+          <div id="contenedorComandasMesa">
+            <p style="color: #71717a;">Hacé clic en una mesa de arriba para ver sus comandas y consumo acumulado.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- VISTA: GESTIÓN DE MENÚ -->
+      <div id="viewMenu" style="display: none; flex-direction: column;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+          <h2 style="font-size: 1.4rem; color: #fff;">Gestión de Carta y Productos</h2>
+          <div style="display: flex; gap: 10px;">
+            <button onclick="abrirModalCategorias()" style="background: #27272a; color: #fff; border: 1px solid #3f3f46; padding: 10px 16px; border-radius: 8px; font-weight: 600; cursor: pointer;">
+              📁 Categorías
+            </button>
+            <button onclick="abrirModalProducto()" style="background: #f97316; color: #fff; border: none; padding: 10px 18px; border-radius: 8px; font-weight: 600; cursor: pointer;">
+              ➕ Agregar Platillo
+            </button>
+          </div>
+        </div>
+
+        <div id="menuCategoryFilters" class="menu-cat-filter"></div>
+        <div id="menuItemsGrid" class="menu-grid"></div>
+      </div>
+
+      <!-- VISTA: MESAS Y QR -->
+      <div id="viewQrs" style="display: none; flex-direction: column; gap: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+          <h2 style="font-size: 1.4rem; color: #fff;">Configuración de Mesas y QR</h2>
+          <button onclick="imprimirTodosLosQRs()" style="background: #27272a; border: 1px solid #3f3f46; color: #fff; padding: 10px 18px; border-radius: 8px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+            🖨️ Generar / Imprimir Todos los QR
+          </button>
+        </div>
+
+        <div style="display: flex; gap: 12px; align-items: center;">
+          <input type="text" id="inputNombreMesa" placeholder="Ej: Mesa 1, Barra 2..." style="background: #18181b; border: 1px solid #27272a; color: #fff; padding: 10px 14px; border-radius: 8px; min-width: 260px;" />
+          <button onclick="agregarMesa()" style="background: #f97316; color: #fff; border: none; padding: 10px 18px; border-radius: 8px; font-weight: 600; cursor: pointer;">➕ Agregar Mesa</button>
+        </div>
+
+        <div class="mesas-list-container" id="mesasListContainer"></div>
+      </div>
+
+      <!-- VISTA: RESEÑAS -->
+      <div id="viewResenas" style="display: none; flex-direction: column; gap: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+          <h2 style="font-size: 1.4rem; color: #fff;">Reseñas y Opiniones de Clientes</h2>
+          <div style="display: flex; gap: 10px;">
+            <span id="resenasPromedio" style="background: #18181b; border: 1px solid #27272a; padding: 8px 14px; border-radius: 8px; font-size: 0.85rem; color: #f97316; font-weight: 600;">⭐ 4.8 Promedio General</span>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 12px;" id="resenasListContainer">
+          <div style="background: #121215; border: 1px solid #27272a; border-radius: 14px; padding: 18px; display: flex; flex-direction: column; gap: 8px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <strong style="color: #fff; font-size: 1.05rem;">Sofía Martínez</strong>
+                <span style="font-size: 0.8rem; color: #a1a1aa; background: #18181b; padding: 2px 8px; border-radius: 6px; border: 1px solid #27272a;">Mesa 4</span>
+              </div>
+              <div style="color: #eab308; font-size: 0.95rem;">★★★★★</div>
+            </div>
+            <p style="color: #d4d4d8; font-size: 0.9rem; line-height: 1.4;">¡Las mejores tapas de la ciudad! El servicio fue súper rápido y la atención excelente.</p>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px; font-size: 0.8rem; color: #71717a;">
+              <span>Hace 15 minutos</span>
+              <div style="display: flex; gap: 8px;">
+                <button style="background: #27272a; color: #f97316; border: 1px solid #3f3f46; padding: 4px 10px; border-radius: 6px; cursor: pointer; font-weight: 600;">Destacar</button>
+                <button style="background: transparent; color: #ef4444; border: none; cursor: pointer;">Eliminar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- VISTA: PROMOS -->
+      <div id="viewPromos" style="display: none; flex-direction: column; gap: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+          <h2 style="font-size: 1.4rem; color: #fff;">Gestión de Promociones y Descuentos</h2>
+          <button onclick="abrirModalPromo()" style="background: #f97316; color: #fff; border: none; padding: 10px 18px; border-radius: 8px; font-weight: 600; cursor: pointer;">
+            ➕ Nueva Promoción
+          </button>
+        </div>
+
+        <div id="promosGrid" class="menu-grid"></div>
+      </div>
+
+      <!-- VISTA: HISTORIAL Y CIERRE DE CAJA -->
+      <div id="viewHistorial" style="display: none; flex-direction: column; gap: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+          <h2 style="font-size: 1.4rem; color: #fff;">Historial y Cierre de Caja</h2>
+          <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <input id="filtroDiaHistorial" type="date" onchange="renderHistorialView()" style="padding: 8px 14px; border-radius: 8px; border: 1px solid #444; background: #1a1a2e; color: #fff; font-size: 0.95rem;">
+            <select id="filtroMesaHistorial" onchange="renderHistorialView()" style="padding: 8px 14px; border-radius: 8px; border: 1px solid #444; background: #1a1a2e; color: #fff; font-size: 0.95rem;">
+              <option value="todas">Todas las mesas</option>
+            </select>
+            <button onclick="borrarHistorial()" style="background: #ef4444; color: #fff; border: none; padding: 8px 14px; border-radius: 8px; font-size: 0.9rem; cursor: pointer; font-weight: 600;">🗑️ Borrar</button>
+          </div>
+        </div>
+
+        <div id="cierreResumen"></div>
+        <div id="historialGrid" class="menu-grid"></div>
+      </div>
+
+      <!-- VISTA: CONFIG TICKET -->
+      <div id="viewTicketConfig" style="display: none; flex-direction: column; gap: 20px;">
+        <h2 style="font-size: 1.4rem; color: #fff;">Configuración del Ticket</h2>
+        <div style="background: #1e1e2e; border-radius: 12px; padding: 24px; max-width: 500px;">
+          <div style="display: flex; flex-direction: column; gap: 14px;">
+            <label style="color: #aaa; font-size: 0.85rem;">Nombre del local</label>
+            <input id="tkNombre" type="text" style="padding: 10px; border-radius: 8px; border: 1px solid #444; background: #2a2a3e; color: #fff;">
+            <label style="color: #aaa; font-size: 0.85rem;">Dirección</label>
+            <input id="tkDireccion" type="text" style="padding: 10px; border-radius: 8px; border: 1px solid #444; background: #2a2a3e; color: #fff;">
+            <label style="color: #aaa; font-size: 0.85rem;">Teléfono</label>
+            <input id="tkTelefono" type="text" style="padding: 10px; border-radius: 8px; border: 1px solid #444; background: #2a2a3e; color: #fff;">
+            <label style="color: #aaa; font-size: 0.85rem;">CUIT</label>
+            <input id="tkCuit" type="text" style="padding: 10px; border-radius: 8px; border: 1px solid #444; background: #2a2a3e; color: #fff;">
+            <label style="color: #aaa; font-size: 0.85rem;">Encabezado del ticket</label>
+            <input id="tkEncabezado" type="text" style="padding: 10px; border-radius: 8px; border: 1px solid #444; background: #2a2a3e; color: #fff;">
+            <label style="color: #aaa; font-size: 0.85rem;">Pie del ticket</label>
+            <input id="tkPie" type="text" style="padding: 10px; border-radius: 8px; border: 1px solid #444; background: #2a2a3e; color: #fff;">
+            <label style="color: #aaa; font-size: 0.85rem;">Leyenda inferior</label>
+            <input id="tkLeyenda" type="text" style="padding: 10px; border-radius: 8px; border: 1px solid #444; background: #2a2a3e; color: #fff;">
+            <button onclick="guardarTicketConfig()" style="margin-top: 8px; background: #22c55e; color: #fff; border: none; padding: 12px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 1rem;">
+              💾 Guardar Configuración
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- MODAL INDIVIDUAL QR -->
+  <div id="modalQrIndividual" class="modal-overlay">
+    <div class="modal-content" style="text-align: center; max-width: 380px;">
+      <h3 id="qrModalNombreMesa" style="color:#fff; margin-bottom: 16px;">Mesa</h3>
+      <div id="qrModalBox" style="background: #fff; padding: 16px; border-radius: 12px; display: inline-block; margin-bottom: 16px;"></div>
+      <div style="display: flex; gap: 10px; justify-content: center;">
+        <button onclick="cerrarModalQr()" style="background: #27272a; color: #fff; border: none; padding: 10px 16px; border-radius: 8px; cursor: pointer;">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONTENEDOR OCULTO PARA IMPRESIÓN MÚLTIPLE DE QRS -->
+  <div id="printContainer" style="display: none;"></div>
+
+  <!-- MODAL GESTIONAR CATEGORÍAS -->
+  <div id="modalCategorias" class="modal-overlay">
+    <div class="modal-content">
+      <h3 style="color:#fff; margin-bottom: 16px;">Gestionar Categorías</h3>
+      <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+        <input type="text" id="nuevaCategoriaInput" placeholder="Nueva categoría..." style="flex:1; background: #18181b; border: 1px solid #27272a; color: #fff; padding: 10px; border-radius: 8px;" />
+        <button onclick="agregarCategoria()" style="background: #f97316; color: #fff; border: none; padding: 10px 16px; border-radius: 8px; font-weight: 600; cursor: pointer;">Agregar</button>
+      </div>
+      <div id="listaCategoriasModal" style="display: flex; flex-direction: column; gap: 8px; max-height: 250px; overflow-y: auto;"></div>
+      <div style="display: flex; justify-content: flex-end; margin-top: 20px;">
+        <button onclick="cerrarModalCategorias()" style="background: #27272a; color: #fff; border: none; padding: 10px 16px; border-radius: 8px; cursor: pointer;">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL AGREGAR/EDITAR PRODUCTO -->
+  <div id="modalProducto" class="modal-overlay">
+    <div class="modal-content">
+      <h3 id="modalTitle" style="color:#fff; margin-bottom: 16px;">Agregar Platillo</h3>
+      <form id="formProducto" onsubmit="guardarProducto(event)">
+        <input type="hidden" id="prodId" />
+        <div class="form-group">
+          <label>Nombre del Producto</label>
+          <input type="text" id="prodNombre" required placeholder="Ej: Milanesa Napolitana" />
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label>Categoría</label>
+            <select id="prodCategoria" required></select>
+          </div>
+          <div class="form-group">
+            <label>Precio ($)</label>
+            <input type="number" step="0.01" id="prodPrecio" required placeholder="11.50" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Etiqueta Especial</label>
+          <select id="prodTag">
+            <option value="">Sin Etiqueta</option>
+            <option value="Menú del Día">Menú del Día</option>
+            <option value="Especialidad">Especialidad</option>
+            <option value="Promo">Promo</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Subir Imagen</label>
+          <input type="file" id="prodFileImage" accept="image/*" onchange="convertirImagenABase64(event)" style="margin-bottom: 6px;" />
+          <input type="hidden" id="prodImagen" />
+          <div id="previewImageContainer" style="display: none; align-items: center; gap: 10px; background: #18181b; padding: 8px; border-radius: 8px; border: 1px solid #27272a;">
+            <img id="imgPreview" src="" style="width: 50px; height: 50px; object-fit: cover; border-radius: 6px;" />
+            <span style="font-size: 0.8rem; color: #22c55e;">✓ Imagen cargada</span>
+            <button type="button" onclick="quitarImagenPreview()" style="background: transparent; color: #ef4444; border: none; font-weight: 700; cursor: pointer; margin-left: auto;">✕</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Descripción</label>
+          <textarea id="prodDescripcion" rows="3" placeholder="Ingredientes o breve descripción..."></textarea>
+        </div>
+        <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 20px;">
+          <button type="button" onclick="cerrarModalProducto()" style="background: #27272a; color: #fff; border: none; padding: 10px 16px; border-radius: 8px; cursor: pointer;">Cancelar</button>
+          <button type="submit" style="background: #f97316; color: #fff; border: none; padding: 10px 18px; border-radius: 8px; font-weight: 600; cursor: pointer;">Guardar Producto</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL AGREGAR/EDITAR PROMO -->
+  <div id="modalPromo" class="modal-overlay">
+    <div class="modal-content">
+      <h3 id="modalPromoTitle" style="color:#fff; margin-bottom: 16px;">Nueva Promoción</h3>
+      <form id="formPromo" onsubmit="guardarPromo(event)">
+        <input type="hidden" id="promoId" />
+        <div class="form-group">
+          <label>Título de la Promo</label>
+          <input type="text" id="promoTitulo" required placeholder="Ej: 2x1 en Cervezas Artesanales" />
+        </div>
+        <div class="form-group">
+          <label>Precio Promocional ($)</label>
+          <input type="number" step="0.01" id="promoPrecio" required placeholder="5.00" />
+        </div>
+        <div class="form-group">
+          <label>Días Disponibles (Seleccioná los que apliquen)</label>
+          <div class="dias-checkbox-grid">
+            <label class="dia-checkbox-label"><input type="checkbox" name="diaPromo" value="Lun"> Lun</label>
+            <label class="dia-checkbox-label"><input type="checkbox" name="diaPromo" value="Mar"> Mar</label>
+            <label class="dia-checkbox-label"><input type="checkbox" name="diaPromo" value="Mié"> Mié</label>
+            <label class="dia-checkbox-label"><input type="checkbox" name="diaPromo" value="Jue"> Jue</label>
+            <label class="dia-checkbox-label"><input type="checkbox" name="diaPromo" value="Vie"> Vie</label>
+            <label class="dia-checkbox-label"><input type="checkbox" name="diaPromo" value="Sáb"> Sáb</label>
+            <label class="dia-checkbox-label"><input type="checkbox" name="diaPromo" value="Dom"> Dom</label>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Subir Imagen</label>
+          <input type="file" id="promoFileImage" accept="image/*" onchange="convertirImagenPromoBase64(event)" style="margin-bottom: 6px;" />
+          <input type="hidden" id="promoImagen" />
+          <div id="previewPromoImgContainer" style="display: none; align-items: center; gap: 10px; background: #18181b; padding: 8px; border-radius: 8px; border: 1px solid #27272a;">
+            <img id="imgPromoPreview" src="" style="width: 50px; height: 50px; object-fit: cover; border-radius: 6px;" />
+            <span style="font-size: 0.8rem; color: #22c55e;">✓ Imagen cargada</span>
+            <button type="button" onclick="quitarImagenPromoPreview()" style="background: transparent; color: #ef4444; border: none; font-weight: 700; cursor: pointer; margin-left: auto;">✕</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Descripción / Condiciones</label>
+          <textarea id="promoDescripcion" rows="3" placeholder="Válido de 18:00 a 20:00 hs..."></textarea>
+        </div>
+        <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 20px;">
+          <button type="button" onclick="cerrarModalPromo()" style="background: #27272a; color: #fff; border: none; padding: 10px 16px; border-radius: 8px; cursor: pointer;">Cancelar</button>
+          <button type="submit" style="background: #f97316; color: #fff; border: none; padding: 10px 18px; border-radius: 8px; font-weight: 600; cursor: pointer;">Guardar Promo</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    let authToken = localStorage.getItem('admin_token') || null;
+
+    function checkAuth() {
+      if (authToken) {
+        document.getElementById('loginOverlay').style.display = 'none';
+      } else {
+        document.getElementById('loginOverlay').style.display = 'flex';
+      }
+    }
+
+    async function doLogin() {
+      const pw = document.getElementById('loginPassword').value;
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: pw })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          authToken = data.token;
+          localStorage.setItem('admin_token', authToken);
+          document.getElementById('loginOverlay').style.display = 'none';
+          document.getElementById('loginError').style.display = 'none';
+          fetchDashboardData();
+        } else {
+          document.getElementById('loginError').style.display = 'block';
+        }
+      } catch (err) {
+        document.getElementById('loginError').style.display = 'block';
+      }
+    }
+
+    function adminHeaders() {
+      return { 'Content-Type': 'application/json', 'x-auth-token': authToken };
+    }
+
+    checkAuth();
+
+    // Inicialización del cliente Socket.io
+    const socket = io();
+
+    let knownOrderIds = new Set();
+    let knownWaiterCallIds = new Set();
+    let isFirstLoad = true;
+    let audioEnabled = false;
+    let currentTab = 'dashboard';
+    let rawPedidosCache = [];
+    let mesasCache = [
+      { id: "1", nombre: "Mesa 1" },
+      { id: "2", nombre: "Mesa 2" },
+      { id: "3", nombre: "Mesa 3" },
+      { id: "4", nombre: "Barra 1" }
+    ];
+    let selectedMesaNombre = null;
+    let estadoMesasManual = {};
+
+    let categoriasMenu = [];
+    let menuCache = [];
+    let selectedMenuCategory = 'Todos';
+    let promosCache = [];
+
+    async function cargarMenuDesdeServidor() {
+      try {
+        const res = await fetch('/api/menu');
+        if (!res.ok) return;
+        const data = await res.json();
+
+        categoriasMenu = (data.categories || []).filter(c => c !== 'Todos');
+        menuCache = (data.products || []).map(p => ({
+          id: p.id,
+          nombre: p.name,
+          categoria: p.category,
+          precio: p.price,
+          disponible: p.disponible !== false,
+          tag: p.badge || '',
+          descripcion: p.description || '',
+          imagen: p.image || ''
+        }));
+        promosCache = (data.promos || []).map(p => ({
+          id: p.id,
+          titulo: p.name,
+          precio: p.price,
+          dias: p.badge ? p.badge.split(', ') : [],
+          disponible: true,
+          descripcion: p.description || '',
+          imagen: p.image || ''
+        }));
+      } catch (err) {
+        console.error('Error cargando menú desde servidor:', err);
+      }
+    }
+
+    async function persistirMenu() {
+      const payload = {
+        categorias: categoriasMenu,
+        productos: menuCache.map(p => ({
+          id: p.id,
+          nombre: p.nombre,
+          categoria: p.categoria,
+          precio: p.precio,
+          disponible: p.disponible,
+          tag: p.tag || '',
+          descripcion: p.descripcion || '',
+          imagen: p.imagen || ''
+        })),
+        promos: promosCache.map(p => ({
+          id: p.id,
+          titulo: p.titulo,
+          precio: p.precio,
+          dias: p.dias || [],
+          disponible: p.disponible,
+          descripcion: p.descripcion || '',
+          imagen: p.imagen || ''
+        }))
+      };
+      try {
+        await fetch('/api/menu', {
+          method: 'POST',
+          headers: adminHeaders(),
+          body: JSON.stringify(payload)
+        });
+      } catch (err) {
+        console.error('Error guardando menú en servidor:', err);
+      }
+    }
+
+    function playChime(tipo = 'pedido') {
+      if (!audioEnabled) return;
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        const ctx = new AudioCtx(); const now = ctx.currentTime;
+        const freq1 = tipo === 'pedido' ? 783.99 : 659.25;
+        const freq2 = tipo === 'pedido' ? 1046.50 : 880.00;
+
+        const osc1 = ctx.createOscillator(), gain1 = ctx.createGain();
+        osc1.type = 'sine'; osc1.frequency.setValueAtTime(freq1, now);
+        gain1.gain.setValueAtTime(0.3, now); gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+        osc1.connect(gain1); gain1.connect(ctx.destination);
+        osc1.start(now); osc1.stop(now + 0.5);
+
+        const osc2 = ctx.createOscillator(), gain2 = ctx.createGain();
+        osc2.type = 'sine'; osc2.frequency.setValueAtTime(freq2, now + 0.12);
+        gain2.gain.setValueAtTime(0.4, now + 0.12); gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+        osc2.connect(gain2); gain2.connect(ctx.destination);
+        osc2.start(now + 0.12); osc2.stop(now + 0.8);
+      } catch (e) { console.warn(e); }
+    }
+
+    function toggleAudio() {
+      audioEnabled = !audioEnabled;
+      const btn = document.getElementById('btnSoundToggle');
+      if (audioEnabled) { btn.innerHTML = '🔔 Sonido: On'; btn.style.background = '#15803d'; playChime('pedido'); }
+      else { btn.innerHTML = '🔇 Sonido: Off'; btn.style.background = '#18181b'; }
+    }
+
+    function switchTab(tab) {
+      currentTab = tab;
+      ['Dashboard', 'Menu', 'Qrs', 'Resenas', 'Promos', 'Historial', 'Ticket'].forEach(t => {
+        const btn = document.getElementById(`nav${t}`);
+        if (btn) btn.classList.toggle('active', t.toLowerCase() === tab);
+      });
+
+      document.getElementById('viewDashboard').style.display = tab === 'dashboard' ? 'block' : 'none';
+      document.getElementById('viewMenu').style.display = tab === 'menu' ? 'flex' : 'none';
+      document.getElementById('viewQrs').style.display = tab === 'qrs' ? 'flex' : 'none';
+      document.getElementById('viewResenas').style.display = tab === 'resenas' ? 'flex' : 'none';
+      document.getElementById('viewPromos').style.display = tab === 'promos' ? 'flex' : 'none';
+      document.getElementById('viewHistorial').style.display = tab === 'historial' ? 'flex' : 'none';
+      document.getElementById('viewTicketConfig').style.display = tab === 'ticket' ? 'flex' : 'none';
+
+      if (tab === 'qrs') cargarMesasView();
+      else if (tab === 'dashboard') fetchDashboardData();
+      else if (tab === 'menu') renderMenuView();
+      else if (tab === 'promos') renderPromosView();
+      else if (tab === 'resenas') renderResenasView();
+      else if (tab === 'historial') renderHistorialView();
+      else if (tab === 'ticket') cargarTicketConfig();
+    }
+
+    async function fetchDashboardData() {
+      try {
+        const [resMesas, resPedidos, resMozo] = await Promise.all([
+          fetch('/api/mesas'),
+          fetch('/api/pedidos'),
+          fetch('/api/mozo')
+        ]);
+        const serverMesas = await resMesas.json();
+        if (serverMesas && serverMesas.length) mesasCache = serverMesas;
+        rawPedidosCache = await resPedidos.json();
+        const llamadas = await resMozo.json();
+
+        detectNewEvents(rawPedidosCache, llamadas);
+        if (currentTab === 'dashboard') {
+          renderDashboardMesasGrid();
+          if (selectedMesaNombre) renderDetalleMesa(selectedMesaNombre);
+        }
+        renderLlamadas(llamadas);
+      } catch (err) { console.error(err); }
+    }
+
+    function detectNewEvents(pedidos, llamadas) {
+      let hasNewOrder = false, hasNewCall = false;
+      pedidos.forEach(p => { if (!knownOrderIds.has(p.id)) { knownOrderIds.add(p.id); if (!isFirstLoad) hasNewOrder = true; } });
+      llamadas.filter(l => !l.atendido).forEach(l => { if (!knownWaiterCallIds.has(l.id)) { knownWaiterCallIds.add(l.id); if (!isFirstLoad) hasNewCall = true; } });
+      if (isFirstLoad) { isFirstLoad = false; return; }
+      if (hasNewOrder) playChime('pedido'); else if (hasNewCall) playChime('mozo');
+    }
+
+    function getEstadoMesa(nombreMesa) {
+      const tienePedidosActivos = rawPedidosCache.some(p => 
+        (p.mesa || 'Mesa 1').toLowerCase() === nombreMesa.toLowerCase() && !p.pagado
+      );
+      if (tienePedidosActivos) return 'activa';
+      return estadoMesasManual[nombreMesa] || 'libre';
+    }
+
+    function toggleEstadoManual(nombreMesa, e) {
+      if (e) e.stopPropagation();
+      const estadoActual = getEstadoMesa(nombreMesa);
+
+      const tienePedidosActivos = rawPedidosCache.some(p => 
+        (p.mesa || 'Mesa 1').toLowerCase() === nombreMesa.toLowerCase() && !p.pagado
+      );
+
+      if (tienePedidosActivos) {
+        alert('Esta mesa tiene pedidos activos. Para liberarla, debés presionar "Cobrar y Liberar Mesa".');
+        return;
+      }
+
+      if (estadoActual === 'libre') estadoMesasManual[nombreMesa] = 'reservada';
+      else if (estadoActual === 'reservada') estadoMesasManual[nombreMesa] = 'libre';
+      else estadoMesasManual[nombreMesa] = 'libre';
+
+      fetchDashboardData();
+    }
+
+    function renderDashboardMesasGrid() {
+      const grid = document.getElementById('gridMesasDashboard');
+      grid.innerHTML = '';
+
+      if (!mesasCache.length) {
+        grid.innerHTML = `<p style="color:#71717a;">No hay mesas configuradas. Agregá mesas desde "Mesas y QR".</p>`;
+        return;
+      }
+
+      let countActivas = 0, countReservadas = 0, countLibres = 0;
+
+      mesasCache.forEach(m => {
+        const estado = getEstadoMesa(m.nombre);
+        if (estado === 'activa') countActivas++;
+        else if (estado === 'reservada') countReservadas++;
+        else countLibres++;
+
+        const pedidosMesa = rawPedidosCache.filter(p => 
+          (p.mesa || 'Mesa 1').toLowerCase() === m.nombre.toLowerCase() && !p.pagado
+        );
+
+        const totalMesa = pedidosMesa.reduce((acc, curr) => acc + (curr.total || 0), 0);
+        const isSelected = selectedMesaNombre === m.nombre;
+
+        let badgeHtml = '';
+        if (estado === 'activa') badgeHtml = `<span class="badge-status badge-activa" onclick="toggleEstadoManual('${m.nombre}', event)">● Activa</span>`;
+        else if (estado === 'reservada') badgeHtml = `<span class="badge-status badge-reservada" onclick="toggleEstadoManual('${m.nombre}', event)">● Reservada</span>`;
+        else badgeHtml = `<span class="badge-status badge-libre" onclick="toggleEstadoManual('${m.nombre}', event)">○ Libre</span>`;
+
+        const card = document.createElement('div');
+        card.className = `card-mesa-dash state-${estado} ${isSelected ? 'selected' : ''}`;
+        card.onclick = () => seleccionarMesa(m.nombre);
+
+        card.innerHTML = `
+          <div class="mesa-dash-header">
+            <div class="mesa-dash-title">${m.nombre}</div>
+            ${badgeHtml}
+          </div>
+          <div class="mesa-dash-info">
+            ${pedidosMesa.length > 0 ? `<span>Comandas: <strong>${pedidosMesa.length}</strong></span>` : '<span>Sin consumo activo</span>'}
+          </div>
+          <div class="mesa-dash-total">
+            ${totalMesa > 0 ? `$${totalMesa.toFixed(2)}` : ''}
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+
+      document.getElementById('cntActivas').innerText = countActivas;
+      document.getElementById('cntReservadas').innerText = countReservadas;
+      document.getElementById('cntLibres').innerText = countLibres;
+
+      if (!selectedMesaNombre && mesasCache.length > 0) {
+        seleccionarMesa(mesasCache[0].nombre);
+      }
+    }
+
+    function seleccionarMesa(nombreMesa) {
+      selectedMesaNombre = nombreMesa;
+      renderDashboardMesasGrid();
+      renderDetalleMesa(nombreMesa);
+    }
+
+    function renderDetalleMesa(nombreMesa) {
+      document.getElementById('detalleMesaTitulo').innerText = `🪑 ${nombreMesa}`;
+      const contenedor = document.getElementById('contenedorComandasMesa');
+      const badgeContenedor = document.getElementById('badgeMesaSeleccionada');
+
+      const estado = getEstadoMesa(nombreMesa);
+      if (estado === 'activa') badgeContenedor.innerHTML = `<span class="badge-status badge-activa">● Activa</span>`;
+      else if (estado === 'reservada') badgeContenedor.innerHTML = `<span class="badge-status badge-reservada">● Reservada</span>`;
+      else badgeContenedor.innerHTML = `<span class="badge-status badge-libre">○ Libre</span>`;
+
+      const pedidosMesa = rawPedidosCache.filter(p => 
+        (p.mesa || 'Mesa 1').toLowerCase() === nombreMesa.toLowerCase() && !p.pagado
+      );
+
+      if (!pedidosMesa.length) {
+        contenedor.innerHTML = `
+          <p style="color:#71717a; margin-top:10px;">No hay comandas activas para esta mesa.</p>
+          ${estado === 'reservada' ? '<p style="color:#eab308; font-size:0.85rem; margin-top:6px;">Mesa marcada como reservada.</p>' : ''}
+        `;
+        return;
+      }
+
+      const totalAcumulado = pedidosMesa.reduce((acc, p) => acc + (p.total || 0), 0);
+
+      contenedor.innerHTML = `
+        <div style="margin-bottom: 14px;">
+          ${pedidosMesa.map(p => `
+            <div class="card-order ${p.estado}">
+              <div style="display:flex; justify-content:space-between; font-size:0.82rem; color:#a1a1aa; margin-bottom:6px;">
+                <span>Comanda: <strong>${p.id}</strong></span>
+                <span>$${p.total.toFixed(2)}</span>
+              </div>
+              <ul style="list-style:none; margin-bottom:8px;">
+                ${p.items.map(i => `<li style="font-size:0.9rem;"><strong>${i.cantidad}x</strong> ${i.nombre}</li>`).join('')}
+              </ul>
+              <div style="display:flex; gap:8px;">
+                ${p.estado === 'pendiente' ? `<button onclick="updateStatus('${p.id}', 'en_preparacion')" class="btn-action" style="background:#2563eb;">👨‍🍳 En Preparación</button>` : ''}
+                ${p.estado !== 'entregado' ? `<button onclick="updateStatus('${p.id}', 'entregado')" class="btn-action" style="background:#16a34a;">✅ Entregado</button>` : '<span style="color:#22c55e; font-size:0.85rem; font-weight:700;">✅ Pedido Entregado</span>'}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+
+        <div style="border-top:1px dashed #27272a; padding-top:12px; display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-size:1.1rem; font-weight:700;">Total a Cobrar:</span>
+          <span style="font-size:1.4rem; font-weight:800; color:#22c55e;">$${totalAcumulado.toFixed(2)}</span>
+        </div>
+
+        <div style="display:flex; gap:10px;">
+          <button onclick="imprimirTicketMesa('${nombreMesa}')" style="flex:1; background:#3b82f6; color:#fff; border:none; padding:12px; border-radius:8px; font-weight:600; cursor:pointer; font-size:0.95rem;">🖨️ Imprimir Ticket</button>
+          <button onclick="cobrarYLiberarMesa('${nombreMesa}')" style="flex:1; background:#22c55e; color:#fff; border:none; padding:12px; border-radius:8px; font-weight:600; cursor:pointer; font-size:0.95rem;">💳 Cobrar y Liberar</button>
+        </div>
+      `;
+    }
+
+    async function cobrarYLiberarMesa(nombreMesa) {
+      if (!confirm(`¿Confirmar cobro y liberar ${nombreMesa}?`)) return;
+
+      const pedidosMesa = rawPedidosCache.filter(p => 
+        (p.mesa || 'Mesa 1').toLowerCase() === nombreMesa.toLowerCase() && !p.pagado
+      );
+
+      for (let p of pedidosMesa) {
+        await fetch(`/api/pedidos/${p.id}`, {
+          method: 'PATCH',
+          headers: adminHeaders(),
+          body: JSON.stringify({ pagado: true, estado: 'entregado' })
+        });
+      }
+
+      socket.emit('mesa_liberada', { mesa: nombreMesa });
+      estadoMesasManual[nombreMesa] = 'libre';
+      fetchDashboardData();
+    }
+
+    async function updateStatus(id, estado) {
+      await fetch(`/api/pedidos/${id}`, {
+        method: 'PATCH',
+        headers: adminHeaders(),
+        body: JSON.stringify({ estado })
+      });
+      fetchDashboardData();
+    }
+
+    function renderLlamadas(llamadas) {
+      const container = document.getElementById('waiterCallsContainer');
+      const activas = llamadas.filter(l => !l.atendido);
+
+      if (!activas.length) { 
+        container.innerHTML = '<p style="color:#71717a; font-size:0.9rem;">Sin llamadas pendientes.</p>'; 
+        return; 
+      }
+
+      container.innerHTML = activas.map(l => `
+        <div class="card-waiter-top">
+          <div>
+            <strong style="color:#ef4444; font-size: 1.05rem;">${l.mesa}</strong>
+            <span style="font-size:0.85rem; color:#e4e4e7; margin-left: 6px;">(${l.tipo})</span>
+          </div>
+          <button onclick="attendWaiterCall('${l.id}')" style="background:#ef4444; color:#fff; border:none; padding:6px 14px; border-radius:6px; font-weight:700; cursor:pointer;">Atender</button>
+        </div>
+      `).join('');
+    }
+
+    async function attendWaiterCall(id) { await fetch(`/api/mozo/${id}`, { method: 'PATCH' }); fetchDashboardData(); }
+
+    /* LÓGICA DE MENÚ Y CATEGORÍAS */
+    function renderMenuView() {
+      renderCategoryFilters();
+      renderMenuItems();
+      poblarSelectCategorias();
+    }
+
+    function renderCategoryFilters() {
+      const filterBox = document.getElementById('menuCategoryFilters');
+      const cats = ['Todos', ...categoriasMenu];
+      filterBox.innerHTML = cats.map(c => `
+        <button class="cat-pill ${selectedMenuCategory === c ? 'active' : ''}" onclick="filterMenuCat('${c}')">${c}</button>
+      `).join('');
+    }
+
+    function filterMenuCat(cat) {
+      selectedMenuCategory = cat;
+      renderCategoryFilters();
+      renderMenuItems();
+    }
+
+    function poblarSelectCategorias() {
+      const select = document.getElementById('prodCategoria');
+      select.innerHTML = categoriasMenu.map(c => `<option value="${c}">${c}</option>`).join('');
+    }
+
+    function abrirModalCategorias() {
+      renderListaCategoriasModal();
+      document.getElementById('modalCategorias').classList.add('active');
+    }
+
+    function cerrarModalCategorias() {
+      document.getElementById('modalCategorias').classList.remove('active');
+    }
+
+    function renderListaCategoriasModal() {
+      const container = document.getElementById('listaCategoriasModal');
+      container.innerHTML = categoriasMenu.map((c, idx) => `
+        <div style="display: flex; justify-content: space-between; align-items: center; background: #18181b; padding: 10px 14px; border-radius: 8px; border: 1px solid #27272a;">
+          <span>${c}</span>
+          <button onclick="eliminarCategoria(${idx})" style="background: transparent; color: #ef4444; border: none; font-size: 1rem; cursor: pointer;">🗑️</button>
+        </div>
+      `).join('');
+    }
+
+    function agregarCategoria() {
+      const input = document.getElementById('nuevaCategoriaInput');
+      const val = input.value.trim();
+      if (val && !categoriasMenu.includes(val)) {
+        categoriasMenu.push(val);
+        input.value = '';
+        renderListaCategoriasModal();
+        renderMenuView();
+        persistirMenu();
+      }
+    }
+
+    function eliminarCategoria(idx) {
+      if (confirm(`¿Eliminar categoría "${categoriasMenu[idx]}"?`)) {
+        categoriasMenu.splice(idx, 1);
+        renderListaCategoriasModal();
+        renderMenuView();
+        persistirMenu();
+      }
+    }
+
+    function convertirImagenABase64(event) {
+      const file = event.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const base64String = e.target.result;
+          document.getElementById('prodImagen').value = base64String;
+          document.getElementById('imgPreview').src = base64String;
+          document.getElementById('previewImageContainer').style.display = 'flex';
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+
+    function quitarImagenPreview() {
+      document.getElementById('prodFileImage').value = '';
+      document.getElementById('prodImagen').value = '';
+      document.getElementById('previewImageContainer').style.display = 'none';
+    }
+
+    function renderMenuItems() {
+      const grid = document.getElementById('menuItemsGrid');
+      const items = selectedMenuCategory === 'Todos' 
+        ? menuCache 
+        : menuCache.filter(i => i.categoria === selectedMenuCategory);
+
+      if (!items.length) {
+        grid.innerHTML = '<p style="color:#71717a;">No hay platillos registrados en esta categoría.</p>';
+        return;
+      }
+
+      grid.innerHTML = items.map(p => `
+        <div class="menu-card ${p.disponible ? '' : 'agotado'}">
+          <img src="${p.imagen || 'https://via.placeholder.com/300x150?text=Sin+Imagen'}" class="menu-card-img" alt="${p.nombre}" />
+          <div class="menu-card-body">
+            <div>
+              <div class="menu-card-title">
+                <span>${p.nombre}</span>
+                <span class="menu-card-price">$${Number(p.precio).toFixed(2)}</span>
+              </div>
+              ${p.tag ? `<span class="menu-card-badge" style="margin-top:4px;">${p.tag}</span>` : ''}
+            </div>
+            <p class="menu-card-desc">${p.descripcion || 'Sin descripción'}</p>
+          </div>
+          <div class="menu-card-actions">
+            <button onclick="toggleStockProducto('${p.id}')" style="background:${p.disponible ? '#16a34a22' : '#dc262622'}; color:${p.disponible ? '#22c55e' : '#ef4444'}; border:1px solid ${p.disponible ? '#16a34a' : '#dc2626'}; padding:6px 10px; border-radius:6px; font-weight:700; cursor:pointer; font-size:0.78rem;">
+              ${p.disponible ? '● Disponible' : '○ Pausado/Agotado'}
+            </button>
+            <div style="display:flex; gap:6px;">
+              <button onclick="editarProducto('${p.id}')" style="background:#27272a; color:#fff; border:none; padding:6px 10px; border-radius:6px; cursor:pointer; font-size:0.8rem;">✏️ Edit</button>
+              <button onclick="eliminarProducto('${p.id}')" style="background:#27272a; color:#ef4444; border:none; padding:6px 10px; border-radius:6px; cursor:pointer; font-size:0.8rem;">🗑️</button>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function toggleStockProducto(id) {
+      const prod = menuCache.find(i => i.id === id);
+      if (prod) {
+        prod.disponible = !prod.disponible;
+        renderMenuItems();
+        
+        socket.emit('toggle_dish_status', { dishId: prod.id, is_available: prod.disponible });
+        persistirMenu();
+      }
+    }
+
+    function abrirModalProducto(prod = null) {
+      poblarSelectCategorias();
+      const modal = document.getElementById('modalProducto');
+      document.getElementById('modalTitle').innerText = prod ? 'Editar Platillo' : 'Agregar Platillo';
+      document.getElementById('prodId').value = prod ? prod.id : '';
+      document.getElementById('prodNombre').value = prod ? prod.nombre : '';
+      document.getElementById('prodCategoria').value = prod ? prod.categoria : (categoriasMenu[0] || '');
+      document.getElementById('prodPrecio').value = prod ? prod.precio : '';
+      document.getElementById('prodTag').value = prod ? (prod.tag || '') : '';
+      document.getElementById('prodImagen').value = prod ? (prod.imagen || '') : '';
+      document.getElementById('prodDescripcion').value = prod ? (prod.descripcion || '') : '';
+      document.getElementById('prodFileImage').value = '';
+
+      if (prod && prod.imagen) {
+        document.getElementById('imgPreview').src = prod.imagen;
+        document.getElementById('previewImageContainer').style.display = 'flex';
+      } else {
+        document.getElementById('previewImageContainer').style.display = 'none';
+      }
+
+      modal.classList.add('active');
+    }
+
+    function cerrarModalProducto() {
+      document.getElementById('modalProducto').classList.remove('active');
+    }
+
+    function guardarProducto(e) {
+      e.preventDefault();
+      const id = document.getElementById('prodId').value;
+      const nombre = document.getElementById('prodNombre').value;
+      const categoria = document.getElementById('prodCategoria').value;
+      const precio = parseFloat(document.getElementById('prodPrecio').value);
+      const tag = document.getElementById('prodTag').value;
+      const imagen = document.getElementById('prodImagen').value;
+      const descripcion = document.getElementById('prodDescripcion').value;
+
+      if (id) {
+        const prod = menuCache.find(i => i.id === id);
+        if (prod) {
+          Object.assign(prod, { nombre, categoria, precio, tag, imagen, descripcion });
+        }
+      } else {
+        menuCache.push({
+          id: Date.now().toString(),
+          nombre, categoria, precio, tag, imagen, descripcion, disponible: true
+        });
+      }
+
+      cerrarModalProducto();
+      renderMenuView();
+      persistirMenu();
+    }
+
+    function editarProducto(id) {
+      const prod = menuCache.find(i => i.id === id);
+      if (prod) abrirModalProducto(prod);
+    }
+
+    function eliminarProducto(id) {
+      if (confirm('¿Seguro que querés eliminar este platillo?')) {
+        menuCache = menuCache.filter(i => i.id !== id);
+        renderMenuView();
+        persistirMenu();
+      }
+    }
+
+    /* LÓGICA DE PROMOS CON CHECKBOXES */
+    function renderPromosView() {
+      const grid = document.getElementById('promosGrid');
+      if (!promosCache.length) {
+        grid.innerHTML = '<p style="color:#71717a;">No hay promociones registradas.</p>';
+        return;
+      }
+
+      grid.innerHTML = promosCache.map(p => {
+        let diasTexto = 'Todos los días';
+        if (Array.isArray(p.dias) && p.dias.length > 0) {
+          diasTexto = p.dias.join(', ');
+        }
+
+        return `
+          <div class="menu-card ${p.disponible ? '' : 'agotado'}">
+            <img src="${p.imagen || 'https://via.placeholder.com/300x150?text=Promo'}" class="menu-card-img" alt="${p.titulo}" />
+            <div class="menu-card-body">
+              <div>
+                <div class="menu-card-title">
+                  <span>${p.titulo}</span>
+                  <span class="menu-card-price">$${Number(p.precio).toFixed(2)}</span>
+                </div>
+                <div style="display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap;">
+                  <span class="menu-card-badge">📅 ${diasTexto}</span>
+                </div>
+              </div>
+              <p class="menu-card-desc" style="margin-top: 6px;">${p.descripcion || 'Sin descripción'}</p>
+            </div>
+            <div class="menu-card-actions">
+              <button onclick="toggleStockPromo('${p.id}')" style="background:${p.disponible ? '#16a34a22' : '#dc262622'}; color:${p.disponible ? '#22c55e' : '#ef4444'}; border:1px solid ${p.disponible ? '#16a34a' : '#dc2626'}; padding:6px 10px; border-radius:6px; font-weight:700; cursor:pointer; font-size:0.78rem;">
+                ${p.disponible ? '● Activa' : '○ Pausada'}
+              </button>
+              <div style="display:flex; gap:6px;">
+                <button onclick="editarPromo('${p.id}')" style="background:#27272a; color:#fff; border:none; padding:6px 10px; border-radius:6px; cursor:pointer; font-size:0.8rem;">✏️ Edit</button>
+                <button onclick="eliminarPromo('${p.id}')" style="background:#27272a; color:#ef4444; border:none; padding:6px 10px; border-radius:6px; cursor:pointer; font-size:0.8rem;">🗑️</button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function abrirModalPromo(promo = null) {
+      const modal = document.getElementById('modalPromo');
+      document.getElementById('modalPromoTitle').innerText = promo ? 'Editar Promoción' : 'Nueva Promoción';
+      document.getElementById('promoId').value = promo ? promo.id : '';
+      document.getElementById('promoTitulo').value = promo ? promo.titulo : '';
+      document.getElementById('promoPrecio').value = promo ? promo.precio : '';
+      document.getElementById('promoImagen').value = promo ? (promo.imagen || '') : '';
+      document.getElementById('promoDescripcion').value = promo ? (promo.descripcion || '') : '';
+      document.getElementById('promoFileImage').value = '';
+
+      const checkboxes = document.querySelectorAll('input[name="diaPromo"]');
+      checkboxes.forEach(cb => {
+        if (promo && Array.isArray(promo.dias) && promo.dias.includes(cb.value)) {
+          cb.checked = true;
+        } else if (!promo) {
+          cb.checked = true;
+        } else {
+          cb.checked = false;
+        }
+      });
+
+      if (promo && promo.imagen) {
+        document.getElementById('imgPromoPreview').src = promo.imagen;
+        document.getElementById('previewPromoImgContainer').style.display = 'flex';
+      } else {
+        document.getElementById('previewPromoImgContainer').style.display = 'none';
+      }
+
+      modal.classList.add('active');
+    }
+
+    function cerrarModalPromo() {
+      document.getElementById('modalPromo').classList.remove('active');
+    }
+
+    function convertirImagenPromoBase64(event) {
+      const file = event.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const base64String = e.target.result;
+          document.getElementById('promoImagen').value = base64String;
+          document.getElementById('imgPromoPreview').src = base64String;
+          document.getElementById('previewPromoImgContainer').style.display = 'flex';
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+
+    function quitarImagenPromoPreview() {
+      document.getElementById('promoFileImage').value = '';
+      document.getElementById('promoImagen').value = '';
+      document.getElementById('previewPromoImgContainer').style.display = 'none';
+    }
+
+    function guardarPromo(e) {
+      e.preventDefault();
+      const id = document.getElementById('promoId').value;
+      const titulo = document.getElementById('promoTitulo').value;
+      const precio = parseFloat(document.getElementById('promoPrecio').value);
+      const imagen = document.getElementById('promoImagen').value;
+      const descripcion = document.getElementById('promoDescripcion').value;
+
+      const diasSeleccionados = [];
+      document.querySelectorAll('input[name="diaPromo"]:checked').forEach(cb => {
+        diasSeleccionados.push(cb.value);
+      });
+
+      if (id) {
+        const promo = promosCache.find(p => p.id === id);
+        if (promo) {
+          Object.assign(promo, { titulo, precio, dias: diasSeleccionados, imagen, descripcion });
+        }
+      } else {
+        promosCache.push({
+          id: Date.now().toString(),
+          titulo, precio, dias: diasSeleccionados, imagen, descripcion, disponible: true
+        });
+      }
+
+      cerrarModalPromo();
+      renderPromosView();
+      persistirMenu();
+    }
+
+    function editarPromo(id) {
+      const promo = promosCache.find(p => p.id === id);
+      if (promo) abrirModalPromo(promo);
+    }
+
+    function toggleStockPromo(id) {
+      const promo = promosCache.find(p => p.id === id);
+      if (promo) {
+        promo.disponible = !promo.disponible;
+        renderPromosView();
+        persistirMenu();
+      }
+    }
+
+    function eliminarPromo(id) {
+      if (confirm('¿Seguro que querés eliminar esta promoción?')) {
+        promosCache = promosCache.filter(p => p.id !== id);
+        renderPromosView();
+        persistirMenu();
+      }
+    }
+
+    /* VISTA MESAS Y QR EN FORMATO LISTA CON EDICIÓN */
+    async function cargarMesasView() {
+      try {
+        const res = await fetch('/api/mesas');
+        const data = await res.json();
+        if (data && data.length) mesasCache = data;
+      } catch (e) { console.warn(e); }
+
+      const container = document.getElementById('mesasListContainer');
+      container.innerHTML = '';
+
+      if (!mesasCache.length) {
+        container.innerHTML = '<div style="padding:20px; text-align:center; color:#71717a;">No hay mesas registradas.</div>';
+        return;
+      }
+
+      mesasCache.forEach((m) => {
+        const row = document.createElement('div');
+        row.className = 'mesa-item-row';
+        row.innerHTML = `
+          <div style="font-weight: 600; font-size: 1.05rem; color: #fff;">
+            🪑 ${m.nombre}
+          </div>
+          <div style="display: flex; gap: 10px; align-items: center;">
+            <button onclick="verQrMesa('${m.nombre}')" style="background: #27272a; border: 1px solid #3f3f46; color: #fff; padding: 8px 14px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 0.85rem; display: flex; align-items: center; gap: 6px;">
+              📱 Ver QR
+            </button>
+            <button onclick="editarMesa('${m.id}', '${m.nombre}')" style="background: #27272a; border: 1px solid #3f3f46; color: #fff; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85rem;" title="Editar Nombre">
+              ✏️
+            </button>
+            <button onclick="eliminarMesa('${m.id}')" style="background: transparent; color: #ef4444; border: none; padding: 8px; cursor: pointer; font-size: 1rem;" title="Eliminar Mesa">
+              🗑️
+            </button>
+          </div>
+        `;
+        container.appendChild(row);
+      });
+    }
+
+    async function agregarMesa() {
+      const input = document.getElementById('inputNombreMesa');
+      const val = input.value.trim();
+      if (!val) return;
+
+      mesasCache.push({ id: Date.now().toString(), nombre: val });
+      try {
+        await fetch('/api/mesas', { method: 'POST', headers: adminHeaders(), body: JSON.stringify(mesasCache) });
+      } catch (e) {}
+
+      input.value = '';
+      cargarMesasView();
+      renderDashboardMesasGrid();
+    }
+
+    async function editarMesa(id, nombreActual) {
+      const nuevoNombre = prompt("Modificar nombre de la mesa o barra:", nombreActual);
+      if (!nuevoNombre || !nuevoNombre.trim()) return;
+
+      const mesa = mesasCache.find(m => m.id === id);
+      if (mesa) {
+        mesa.nombre = nuevoNombre.trim();
+        try {
+          await fetch('/api/mesas', { method: 'POST', headers: adminHeaders(), body: JSON.stringify(mesasCache) });
+        } catch (e) {}
+        cargarMesasView();
+        renderDashboardMesasGrid();
+      }
+    }
+
+    async function eliminarMesa(id) {
+      if (!confirm('¿Seguro que querés eliminar esta mesa?')) return;
+      mesasCache = mesasCache.filter(m => m.id !== id);
+      try {
+        await fetch('/api/mesas', { method: 'POST', headers: adminHeaders(), body: JSON.stringify(mesasCache) });
+      } catch (e) {}
+      cargarMesasView();
+      renderDashboardMesasGrid();
+    }
+
+    function getBaseUrl() {
+      return `${window.location.protocol}//${window.location.hostname}:${window.location.port}`;
+    }
+
+    function verQrMesa(nombreMesa) {
+      document.getElementById('qrModalNombreMesa').innerText = nombreMesa;
+      const box = document.getElementById('qrModalBox');
+      box.innerHTML = '';
+      const url = `${getBaseUrl()}/cliente.html?mesa=${encodeURIComponent(nombreMesa)}`;
+      new QRCode(box, { text: url, width: 160, height: 160 });
+      document.getElementById('modalQrIndividual').classList.add('active');
+    }
+
+    function cerrarModalQr() {
+      document.getElementById('modalQrIndividual').classList.remove('active');
+    }
+
+    function imprimirTodosLosQRs() {
+      if (!mesasCache.length) {
+        alert('No hay mesas cargadas.');
+        return;
+      }
+
+      const ventanaImpresion = window.open('', '_blank', 'width=800,height=600');
+      
+      ventanaImpresion.document.write(`
+        <html>
+          <head>
+            <title>Imprimir QRs de Mesas</title>
+            <style>
+              body {
+                font-family: Arial, sans-serif;
+                margin: 0;
+                padding: 15px;
+              }
+              .grid-container {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 15px;
+                justify-items: center;
+              }
+              .qr-print-card {
+                border: 2px solid #000;
+                padding: 12px;
+                text-align: center;
+                width: 150px;
+                page-break-inside: avoid;
+                break-inside: avoid;
+                background: #fff;
+                border-radius: 6px;
+              }
+              h3 {
+                margin: 0 0 10px 0;
+                font-size: 16px;
+                font-weight: bold;
+              }
+              img {
+                width: 120px;
+                height: 120px;
+                display: block;
+                margin: 0 auto;
+              }
+            </style>
+          </head>
+          <body>
+            <div id="tempContainer" class="grid-container"></div>
+          </body>
+        </html>
+      `);
+
+      ventanaImpresion.document.close();
+
+      const printBox = document.getElementById('printContainer');
+      printBox.innerHTML = '';
+
+      mesasCache.forEach(m => {
+        const card = document.createElement('div');
+        const title = document.createElement('h3');
+        title.innerText = m.nombre;
+        const qrDiv = document.createElement('div');
+        
+        card.appendChild(title);
+        card.appendChild(qrDiv);
+        printBox.appendChild(card);
+
+        const url = `${getBaseUrl()}/cliente.html?mesa=${encodeURIComponent(m.nombre)}`;
+        new QRCode(qrDiv, { text: url, width: 120, height: 120 });
+      });
+
+      setTimeout(() => {
+        const contenedorNuevaVentana = ventanaImpresion.document.getElementById('tempContainer');
+        const tarjetasOriginales = printBox.children;
+        for (let card of tarjetasOriginales) {
+          const canvas = card.querySelector('canvas');
+          if (canvas) {
+            const imgData = canvas.toDataURL("image/png");
+            const nuevaCard = document.createElement('div');
+            nuevaCard.className = 'qr-print-card';
+            const h3 = document.createElement('h3');
+            h3.innerText = card.querySelector('h3').innerText;
+            const img = document.createElement('img');
+            img.src = imgData;
+            nuevaCard.appendChild(h3);
+            nuevaCard.appendChild(img);
+            contenedorNuevaVentana.appendChild(nuevaCard);
+          }
+        }
+
+        ventanaImpresion.focus();
+        setTimeout(() => {
+          ventanaImpresion.print();
+          ventanaImpresion.close();
+        }, 500);
+
+      }, 500);
+    }
+
+    async function renderResenasView() {
+      try {
+        const res = await fetch('/api/resenas');
+        const resenas = await res.json();
+        const container = document.getElementById('resenasListContainer');
+
+        const promedio = resenas.length ? (resenas.reduce((s, r) => s + (r.estrellas || 5), 0) / resenas.length).toFixed(1) : '—';
+        document.getElementById('resenasPromedio').textContent = resenas.length ? `⭐ ${promedio} Promedio (${resenas.length})` : 'Sin reseñas aún';
+
+        if (!resenas.length) {
+          container.innerHTML = '<p style="color: #888; font-size: 1rem;">No hay reseñas todavía.</p>';
+          return;
+        }
+
+        resenas.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+
+        container.innerHTML = resenas.map(r => {
+          const fecha = new Date(r.fecha).toLocaleString('es-AR');
+          const stars = '★'.repeat(r.estrellas || 5) + '☆'.repeat(5 - (r.estrellas || 5));
+          const platosHtml = (r.platos && r.platos.length)
+            ? `<div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:4px;">${r.platos.map(p =>
+                `<span style="background:#1e1e2e; border:1px solid #3f3f46; padding:3px 8px; border-radius:6px; font-size:0.78rem; color:#ccc;">${p.nombre} x${p.cantidad}</span>`
+              ).join('')}</div>`
+            : '';
+          return `
+            <div style="background: #121215; border: 1px solid #27272a; border-radius: 14px; padding: 18px; display: flex; flex-direction: column; gap: 8px;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <strong style="color: #fff; font-size: 1.05rem;">${r.nombre || 'Anónimo'}</strong>
+                  <span style="font-size: 0.8rem; color: #a1a1aa; background: #18181b; padding: 2px 8px; border-radius: 6px; border: 1px solid #27272a;">${r.mesa || 'N/A'}</span>
+                </div>
+                <div style="color: #eab308; font-size: 0.95rem;">${stars}</div>
+              </div>
+              ${platosHtml}
+              ${r.texto ? `<p style="color: #d4d4d8; font-size: 0.9rem; line-height: 1.4;">${r.texto}</p>` : ''}
+              <div style="font-size: 0.8rem; color: #71717a;">${fecha}</div>
+            </div>
+          `;
+        }).join('');
+      } catch (err) {
+        console.error('Error al cargar reseñas:', err);
+      }
+    }
+
+    async function renderHistorialView() {
+      try {
+        const filtroMesa = document.getElementById('filtroMesaHistorial').value;
+        const filtroDia = document.getElementById('filtroDiaHistorial').value;
+
+        const filtroSelect = document.getElementById('filtroMesaHistorial');
+        const resPedidos = await fetch('/api/pedidos');
+        const pedidos = await resPedidos.json();
+        const mesasNames = [...new Set(pedidos.map(p => p.mesa || 'Mesa 1'))].sort();
+        const currentVal = filtroSelect.value;
+        filtroSelect.innerHTML = '<option value="todas">Todas las mesas</option>';
+        mesasNames.forEach(m => {
+          const opt = document.createElement('option');
+          opt.value = m;
+          opt.textContent = m;
+          if (m === currentVal) opt.selected = true;
+          filtroSelect.appendChild(opt);
+        });
+
+        let filtrados = pedidos;
+        let fechaParam = filtroDia || new Date().toISOString().slice(0, 10);
+        if (filtroDia) {
+          filtrados = pedidos.filter(p => new Date(p.fecha).toISOString().slice(0, 10) === filtroDia);
+        }
+        if (filtroMesa !== 'todas') {
+          filtrados = filtrados.filter(p => (p.mesa || '1') === filtroMesa);
+        }
+
+        filtrados.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+
+        try {
+          const resCierre = await fetch(`/api/cierre-caja?fecha=${fechaParam}`, { headers: adminHeaders() });
+          if (resCierre.ok) {
+            const c = await resCierre.json();
+            const cierreEl = document.getElementById('cierreResumen');
+            if (c.pedidosPagados > 0) {
+              const rankingHtml = c.rankingPlatos.slice(0, 5).map((p, i) =>
+                `<div style="display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid #27272a;">
+                  <span style="color:#ccc; font-size:0.85rem;">${i+1}. ${p.nombre}</span>
+                  <span style="color:#aaa; font-size:0.85rem;">x${p.cantidad} — $${p.total.toFixed(2)}</span>
+                </div>`
+              ).join('');
+              cierreEl.innerHTML = `
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:12px;">
+                  <div style="background:#1e1e2e; border-radius:12px; padding:14px; text-align:center;">
+                    <div style="color:#a1a1aa; font-size:0.78rem;">Pedidos</div>
+                    <div style="color:#fff; font-size:1.5rem; font-weight:800;">${c.pedidosPagados}</div>
+                  </div>
+                  <div style="background:#1e1e2e; border-radius:12px; padding:14px; text-align:center;">
+                    <div style="color:#a1a1aa; font-size:0.78rem;">Ventas</div>
+                    <div style="color:#22c55e; font-size:1.5rem; font-weight:800;">$${c.totalVentas.toFixed(2)}</div>
+                  </div>
+                  <div style="background:#1e1e2e; border-radius:12px; padding:14px; text-align:center;">
+                    <div style="color:#a1a1aa; font-size:0.78rem;">Propinas</div>
+                    <div style="color:#eab308; font-size:1.5rem; font-weight:800;">$${c.totalPropinas.toFixed(2)}</div>
+                  </div>
+                  <div style="background:#1e1e2e; border-radius:12px; padding:14px; text-align:center;">
+                    <div style="color:#a1a1aa; font-size:0.78rem;">Total</div>
+                    <div style="color:#f97316; font-size:1.5rem; font-weight:800;">$${c.totalGeneral.toFixed(2)}</div>
+                  </div>
+                </div>
+                ${rankingHtml ? `<div style="background:#1e1e2e; border-radius:12px; padding:14px;"><h3 style="color:#fff; font-size:0.9rem; margin-bottom:8px;">Top Platos</h3>${rankingHtml}</div>` : ''}
+              `;
+            } else {
+              cierreEl.innerHTML = '';
+            }
+          }
+        } catch (e) { document.getElementById('cierreResumen').innerHTML = ''; }
+
+        const grid = document.getElementById('historialGrid');
+        if (!filtrados.length) {
+          grid.innerHTML = '<p style="color: #888; font-size: 1.1rem;">No hay pedidos en el historial.</p>';
+          return;
+        }
+
+        grid.innerHTML = filtrados.map(p => {
+          const fecha = new Date(p.fecha).toLocaleString('es-AR');
+          const items = (p.items || []).map(i => `${i.nombre} x${i.cantidad} - $${(i.subtotal || i.precioUnitario * i.cantidad).toFixed(2)}`).join('<br>');
+          const total = p.total || (p.items || []).reduce((s, i) => s + (i.subtotal || i.precioUnitario * i.cantidad), 0);
+          const estadoColor = p.pagado ? '#22c55e' : (p.estado === 'entregado' ? '#3b82f6' : '#f59e0b');
+          const estadoLabel = p.pagado ? 'Pagado' : p.estado;
+          return `
+            <div style="background: #1e1e2e; border-radius: 12px; padding: 18px; border-left: 4px solid ${estadoColor};">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <strong style="color: #fff; font-size: 1.05rem;">${p.mesa || 'Mesa 1'}</strong>
+                <span style="color: ${estadoColor}; font-size: 0.8rem; font-weight: 600;">${estadoLabel}</span>
+              </div>
+              <div style="color: #aaa; font-size: 0.8rem; margin-bottom: 8px;">${fecha}</div>
+              <div style="color: #ccc; font-size: 0.9rem; margin-bottom: 10px;">${items}</div>
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="color: #f97316; font-weight: 700; font-size: 1.05rem;">$${total.toFixed(2)}</span>
+                <button onclick="imprimirTicket('${p.id}')" style="background: #3b82f6; color: #fff; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.8rem;">🖨️ Imprimir</button>
+              </div>
+            </div>
+          `;
+        }).join('');
+      } catch (err) {
+        console.error('Error al cargar historial:', err);
+      }
+    }
+
+    async function borrarHistorial() {
+      const filtroDia = document.getElementById('filtroDiaHistorial').value;
+      if (!filtroDia) return;
+      if (!confirm(`¿Borrar todo el historial del día ${filtroDia}?`)) return;
+
+      try {
+        await fetch(`/api/pedidos?desde=${filtroDia}&hasta=${filtroDia}`, { method: 'DELETE', headers: adminHeaders() });
+        renderHistorialView();
+      } catch (err) {
+        console.error('Error al borrar historial:', err);
+      }
+    }
+
+    async function cargarTicketConfig() {
+      try {
+        const res = await fetch('/api/ticket-config');
+        const config = await res.json();
+        document.getElementById('tkNombre').value = config.nombre || '';
+        document.getElementById('tkDireccion').value = config.direccion || '';
+        document.getElementById('tkTelefono').value = config.telefono || '';
+        document.getElementById('tkCuit').value = config.cuit || '';
+        document.getElementById('tkEncabezado').value = config.encabezado || '';
+        document.getElementById('tkPie').value = config.pie || '';
+        document.getElementById('tkLeyenda').value = config.leyenda || '';
+      } catch (err) {
+        console.error('Error al cargar config ticket:', err);
+      }
+    }
+
+    async function guardarTicketConfig() {
+      const config = {
+        nombre: document.getElementById('tkNombre').value,
+        direccion: document.getElementById('tkDireccion').value,
+        telefono: document.getElementById('tkTelefono').value,
+        cuit: document.getElementById('tkCuit').value,
+        encabezado: document.getElementById('tkEncabezado').value,
+        pie: document.getElementById('tkPie').value,
+        leyenda: document.getElementById('tkLeyenda').value
+      };
+      await fetch('/api/ticket-config', {
+        method: 'POST',
+        headers: adminHeaders(),
+        body: JSON.stringify(config)
+      });
+      alert('✅ Configuración del ticket guardada');
+    }
+
+    async function imprimirTicketMesa(nombreMesa) {
+      try {
+        const [resPedido, resConfig] = await Promise.all([
+          fetch('/api/pedidos'),
+          fetch('/api/ticket-config')
+        ]);
+        const pedidos = await resPedido.json();
+        const config = await resConfig.json();
+        const pedidosMesa = pedidos.filter(p =>
+          (p.mesa || 'Mesa 1').toLowerCase() === nombreMesa.toLowerCase() && !p.pagado
+        );
+        if (!pedidosMesa.length) return alert('No hay pedidos activos para esta mesa');
+
+        const allItems = [];
+        pedidosMesa.forEach(p => {
+          (p.items || []).forEach(i => {
+            const existing = allItems.find(x => x.nombre === i.nombre);
+            if (existing) {
+              existing.cantidad += i.cantidad;
+              existing.subtotal += i.precio * i.cantidad;
+            } else {
+              allItems.push({ nombre: i.nombre, cantidad: i.cantidad, precio: i.precio, subtotal: i.precio * i.cantidad });
+            }
+          });
+        });
+        const total = allItems.reduce((s, i) => s + i.subtotal, 0);
+        const line = '─'.repeat(32);
+        const dline = '═'.repeat(32);
+        const center = (txt, len = 32) => {
+          const pad = Math.max(0, len - txt.length);
+          const left = Math.floor(pad / 2);
+          return ' '.repeat(left) + txt;
+        };
+
+        let ticket = '';
+        ticket += center(config.nombre.toUpperCase()) + '\n';
+        ticket += center(config.direccion) + '\n';
+        ticket += center(config.telefono) + '\n';
+        if (config.cuit) ticket += center('CUIT: ' + config.cuit) + '\n';
+        ticket += '\n' + line + '\n';
+        if (config.encabezado) ticket += center(config.encabezado) + '\n';
+        ticket += line + '\n\n';
+        ticket += `Mesa: ${nombreMesa}\n`;
+        ticket += `Fecha: ${new Date().toLocaleString('es-AR')}\n`;
+        ticket += `\nComandas: ${pedidosMesa.map(p => p.id).join(', ')}\n`;
+        ticket += '\n' + dline + '\n';
+        ticket += 'ARTICULO          CANT  IMPORTE\n';
+        ticket += dline + '\n';
+
+        allItems.forEach(i => {
+          const nombre = i.nombre.length > 16 ? i.nombre.substring(0, 15) + '.' : i.nombre;
+          const cant = String(i.cantidad).padStart(3);
+          const importe = ('$' + i.subtotal.toFixed(2)).padStart(8);
+          ticket += `${nombre.padEnd(16)} ${cant}  ${importe}\n`;
+        });
+
+        ticket += dline + '\n';
+        ticket += `${'TOTAL'.padEnd(22)} $${total.toFixed(2).padStart(8)}\n`;
+        ticket += dline + '\n\n';
+        ticket += center(config.pie) + '\n';
+        if (config.leyenda) ticket += center(config.leyenda) + '\n';
+
+        const printWindow = window.open('', '_blank', 'width=320,height=600');
+        printWindow.document.write(`<pre style="font-family: 'Courier New', monospace; font-size: 13px; margin: 0; white-space: pre;">${ticket}</pre>`);
+        printWindow.document.close();
+        printWindow.focus();
+        setTimeout(() => { printWindow.print(); }, 300);
+      } catch (err) {
+        console.error('Error al imprimir ticket:', err);
+        alert('Error al imprimir');
+      }
+    }
+
+    async function imprimirTicket(pedidoId) {
+      try {
+        const [resPedido, resConfig] = await Promise.all([
+          fetch('/api/pedidos'),
+          fetch('/api/ticket-config')
+        ]);
+        const pedidos = await resPedido.json();
+        const config = await resConfig.json();
+        const pedido = pedidos.find(p => p.id === pedidoId);
+        if (!pedido) return alert('Pedido no encontrado');
+
+        const items = (pedido.items || []).map(i => ({
+          nombre: i.nombre,
+          cantidad: i.cantidad,
+          precio: i.precio,
+          subtotal: i.precio * i.cantidad
+        }));
+        const total = items.reduce((s, i) => s + i.subtotal, 0);
+
+        const line = '─'.repeat(32);
+        const dline = '═'.repeat(32);
+        const center = (txt, len = 32) => {
+          const pad = Math.max(0, len - txt.length);
+          const left = Math.floor(pad / 2);
+          return ' '.repeat(left) + txt;
+        };
+
+        let ticket = '';
+        ticket += center(config.nombre.toUpperCase()) + '\n';
+        ticket += center(config.direccion) + '\n';
+        ticket += center(config.telefono) + '\n';
+        if (config.cuit) ticket += center('CUIT: ' + config.cuit) + '\n';
+        ticket += '\n' + line + '\n';
+        if (config.encabezado) ticket += center(config.encabezado) + '\n';
+        ticket += line + '\n\n';
+        ticket += `Mesa: ${pedido.mesa || 'Mesa 1'}\n`;
+        ticket += `Fecha: ${new Date(pedido.fecha).toLocaleString('es-AR')}\n`;
+        ticket += `Pedido: ${pedido.id}\n`;
+        ticket += '\n' + dline + '\n';
+        ticket += 'ARTICULO          CANT  IMPORTE\n';
+        ticket += dline + '\n';
+
+        items.forEach(i => {
+          const nombre = i.nombre.length > 16 ? i.nombre.substring(0, 15) + '.' : i.nombre;
+          const cant = String(i.cantidad).padStart(3);
+          const importe = ('$' + i.subtotal.toFixed(2)).padStart(8);
+          ticket += `${nombre.padEnd(16)} ${cant}  ${importe}\n`;
+        });
+
+        ticket += dline + '\n';
+        ticket += `${'TOTAL'.padEnd(22)} $${total.toFixed(2).padStart(8)}\n`;
+        ticket += dline + '\n\n';
+        ticket += center(config.pie) + '\n';
+        if (config.leyenda) ticket += center(config.leyenda) + '\n';
+
+        const printWindow = window.open('', '_blank', 'width=320,height=600');
+        printWindow.document.write(`<pre style="font-family: 'Courier New', monospace; font-size: 13px; margin: 0; white-space: pre;">${ticket}</pre>`);
+        printWindow.document.close();
+        printWindow.focus();
+        setTimeout(() => { printWindow.print(); }, 300);
+      } catch (err) {
+        console.error('Error al imprimir ticket:', err);
+        alert('Error al imprimir');
+      }
+    }
+
+    socket.on('menu_updated', () => {
+      cargarMenuDesdeServidor().then(() => {
+        if (currentTab === 'menu') renderMenuView();
+        if (currentTab === 'promos') renderPromosView();
+      });
+    });
+
+    setInterval(fetchDashboardData, 3000);
+    document.getElementById('filtroDiaHistorial').value = new Date().toISOString().slice(0, 10);
+    fetchDashboardData();
+    cargarMenuDesdeServidor();
+  </script>
+</body>
+</html>
