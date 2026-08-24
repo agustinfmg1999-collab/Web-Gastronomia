@@ -27,6 +27,8 @@ const RESENAS_FILE = path.join(__dirname, 'resenas.json');
 const AUTH_FILE = path.join(__dirname, 'auth.json');
 const INSUMOS_FILE = path.join(__dirname, 'insumos.json');
 const RECETAS_FILE = path.join(__dirname, 'recetas.json');
+const ARCA_FILE = path.join(__dirname, 'arca.json');
+const FACTURAS_FILE = path.join(__dirname, 'facturas.json');
 const BACKUP_DIR = path.join(__dirname, 'backups');
 
 const ADMIN_PASSWORD = 'admin123';
@@ -125,6 +127,18 @@ let recetas = readData(RECETAS_FILE);
 if (!recetas || !Array.isArray(recetas)) {
   recetas = [];
   saveData(RECETAS_FILE, recetas);
+}
+
+let arcaConfig = readData(ARCA_FILE);
+if (!arcaConfig || typeof arcaConfig !== 'object') {
+  arcaConfig = { habilitado: false, cuit: '', cert: '', key: '', puntoVenta: 1, tipoComprobante: 6, production: false };
+  saveData(ARCA_FILE, arcaConfig);
+}
+
+let facturas = readData(FACTURAS_FILE);
+if (!facturas || !Array.isArray(facturas)) {
+  facturas = [];
+  saveData(FACTURAS_FILE, facturas);
 }
 
 // --- CONFIGURACIÓN DE SOCKET.IO ---
@@ -648,13 +662,176 @@ app.get('/api/reportes', authMiddleware, (req, res) => {
   });
 });
 
+// ENDPOINTS ARCA - FACTURACIÓN ELECTRÓNICA (OPCIONAL)
+let arcaInstance = null;
+
+async function getArcaInstance() {
+  if (arcaInstance) return arcaInstance;
+  if (!arcaConfig.habilitado || !arcaConfig.cuit || !arcaConfig.cert || !arcaConfig.key) return null;
+  try {
+    const { Arca } = await import('@ramiidv/arca-facturacion');
+    arcaInstance = new Arca({
+      cuit: parseInt(arcaConfig.cuit),
+      cert: arcaConfig.cert,
+      key: arcaConfig.key,
+      production: arcaConfig.production || false
+    });
+    return arcaInstance;
+  } catch (err) {
+    console.error('Error inicializando ARCA:', err.message);
+    return null;
+  }
+}
+
+app.get('/api/arca/config', authMiddleware, (req, res) => {
+  const safe = { ...arcaConfig };
+  if (safe.cert) safe.cert = safe.cert.slice(0, 20) + '...';
+  if (safe.key) safe.key = '***';
+  res.json(safe);
+});
+
+app.post('/api/arca/config', authMiddleware, (req, res) => {
+  if (req.body.habilitado !== undefined) arcaConfig.habilitado = req.body.habilitado;
+  if (req.body.cuit !== undefined) arcaConfig.cuit = req.body.cuit;
+  if (req.body.cert !== undefined) arcaConfig.cert = req.body.cert;
+  if (req.body.key !== undefined) arcaConfig.key = req.body.key;
+  if (req.body.puntoVenta !== undefined) arcaConfig.puntoVenta = parseInt(req.body.puntoVenta) || 1;
+  if (req.body.tipoComprobante !== undefined) arcaConfig.tipoComprobante = parseInt(req.body.tipoComprobante) || 6;
+  if (req.body.production !== undefined) arcaConfig.production = req.body.production;
+  arcaInstance = null;
+  saveData(ARCA_FILE, arcaConfig);
+  res.json({ ok: true, habilitado: arcaConfig.habilitado });
+});
+
+app.post('/api/arca/test', authMiddleware, async (req, res) => {
+  try {
+    arcaInstance = null;
+    const arca = await getArcaInstance();
+    if (!arca) return res.status(400).json({ ok: false, error: 'ARCA no está habilitado o falta configuración' });
+    const ultimo = await arca.ultimoComprobante(arcaConfig.puntoVenta, arcaConfig.tipoComprobante);
+    res.json({ ok: true, ultimoComprobante: ultimo, puntoVenta: arcaConfig.puntoVenta, modo: arcaConfig.production ? 'Producción' : 'Homologación' });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.post('/api/facturas', authMiddleware, async (req, res) => {
+  try {
+    const arca = await getArcaInstance();
+    if (!arca) return res.status(400).json({ error: 'ARCA no habilitado' });
+
+    const { pedidoId, cliente, items, total, propina } = req.body;
+    const pedido = pedidos.find(p => p.id === pedidoId);
+
+    const condIvaReceptor = cliente?.condicionIva || 5;
+    const docTipo = cliente?.tipoDoc || 99;
+    const docNro = cliente?.nroDoc || 0;
+    const razonSocial = cliente?.razonSocial || '';
+
+    const itemsArca = (items || []).map(i => ({
+      neto: Number(((i.subtotal || i.precio * i.cantidad) / 1.21).toFixed(2)),
+      iva: 21
+    }));
+
+    if (!itemsArca.length) {
+      itemsArca.push({ neto: Number((total / 1.21).toFixed(2)), iva: 21 });
+    }
+
+    const result = await arca.facturar({
+      ptoVta: arcaConfig.puntoVenta,
+      cbteTipo: arcaConfig.tipoComprobante,
+      docTipo,
+      docNro: docNro ? BigInt(docNro) : undefined,
+      condicionIvaReceptor: condIvaReceptor,
+      razonSocial: razonSocial || undefined,
+      items: itemsArca
+    });
+
+    const cae = result.cae;
+    const vto = result.vencimientoCae;
+    const numero = result.numeroComprobante;
+
+    const qrData = {
+      ver: 1,
+      fecha: new Date().toISOString().slice(0, 10).replace(/-/g, ''),
+      cuit: arcaConfig.cuit,
+      ptoVta: arcaConfig.puntoVenta,
+      tipoCmp: arcaConfig.tipoComprobante,
+      nroCmp: numero,
+      importe: total,
+      moneda: 'PES',
+      ctz: 1,
+      tipoDocRec: docTipo,
+      nroDocRec: docNro,
+      tipoCodAut: 'E',
+      codAut: cae
+    };
+    const qrUrl = `https://www.afip.gob.ar/facturacion/QR/?qr=${Buffer.from(JSON.stringify(qrData)).toString('base64')}`;
+
+    const factura = {
+      id: `FCB-${Date.now()}`,
+      pedidoId: pedidoId || null,
+      fecha: new Date().toISOString(),
+      cae,
+      caeVencimiento: vto,
+      tipoComprobante: arcaConfig.tipoComprobante,
+      puntoVenta: arcaConfig.puntoVenta,
+      numeroComprobante: numero,
+      cliente: {
+        tipoDoc: docTipo,
+        nroDoc: docNro,
+        razonSocial: razonSocial || 'Consumidor Final',
+        condicionIva: condIvaReceptor
+      },
+      items: items || pedido?.items || [],
+      netoGravado: itemsArca.reduce((s, i) => s + i.neto, 0),
+      iva: itemsArca.reduce((s, i) => s + (i.neto * i.iva / 100), 0),
+      total,
+      propina: propina || 0,
+      qrUrl,
+      estado: 'autorizada'
+    };
+
+    facturas.push(factura);
+    saveData(FACTURAS_FILE, facturas);
+
+    if (pedido) {
+      pedido.facturaId = factura.id;
+      pedido.facturaCae = cae;
+      saveData(PEDIDOS_FILE, pedidos);
+    }
+
+    res.status(201).json(factura);
+  } catch (err) {
+    console.error('Error emitiendo factura ARCA:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/facturas', authMiddleware, (req, res) => {
+  const { desde, hasta } = req.query;
+  let result = facturas;
+  if (desde && hasta) {
+    const fDesde = new Date(desde + 'T00:00:00');
+    const fHasta = new Date(hasta + 'T23:59:59.999');
+    result = facturas.filter(f => { const f2 = new Date(f.fecha); return f2 >= fDesde && f2 <= fHasta; });
+  }
+  res.json(result);
+});
+
+app.get('/api/facturas/:id', authMiddleware, (req, res) => {
+  const factura = facturas.find(f => f.id === req.params.id);
+  if (!factura) return res.status(404).json({ error: 'Factura no encontrada' });
+  res.json(factura);
+});
+
 // BACKUP AUTOMÁTICO
 function crearBackup() {
   try {
     const now = new Date();
     const carpeta = path.join(BACKUP_DIR, now.toISOString().slice(0, 13).replace(':', ''));
     if (!fs.existsSync(carpeta)) fs.mkdirSync(carpeta, { recursive: true });
-    [PEDIDOS_FILE, MOZO_FILE, MESAS_FILE, MENU_FILE, TICKET_FILE, RESENAS_FILE, INSUMOS_FILE, RECETAS_FILE].forEach(f => {
+    [PEDIDOS_FILE, MOZO_FILE, MESAS_FILE, MENU_FILE, TICKET_FILE, RESENAS_FILE, INSUMOS_FILE, RECETAS_FILE, ARCA_FILE, FACTURAS_FILE].forEach(f => {
       if (fs.existsSync(f)) {
         fs.copyFileSync(f, path.join(carpeta, path.basename(f)));
       }

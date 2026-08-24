@@ -343,6 +343,10 @@
 
         <div id="cierreResumen"></div>
         <div id="historialGrid" class="menu-grid"></div>
+        <div id="facturasDelDia" style="display:none; background:#1e1e2e; border-radius:12px; padding:20px; margin-top:10px;">
+          <h3 style="color:#f97316; font-size:1.1rem; margin-bottom:12px;">📄 Facturas Emitidas</h3>
+          <div id="facturasDelDiaGrid"></div>
+        </div>
       </div>
 
       <!-- VISTA: REPORTES Y ESTADÍSTICAS -->
@@ -423,6 +427,56 @@
             <button onclick="guardarTicketConfig()" style="margin-top: 8px; background: #22c55e; color: #fff; border: none; padding: 12px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 1rem;">
               💾 Guardar Configuración
             </button>
+          </div>
+        </div>
+
+        <div style="background: #1e1e2e; border-radius: 12px; padding: 24px; max-width: 500px;">
+          <h3 style="color: #f97316; font-size: 1rem; margin-bottom: 8px;">📄 Facturación Electrónica (ARCA)</h3>
+          <p style="color: #888; font-size: 0.8rem; margin-bottom: 14px;">Módulo opcional. Conectá con ARCA para emitir facturas electrónicas con CAE válido.</p>
+          <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
+            <label id="arcaToggle" style="position:relative; width:48px; height:26px; cursor:pointer;">
+              <input type="checkbox" id="arcaHabilitado" onchange="toggleArcaConfig()" style="display:none;">
+              <span id="arcaToggleSlider" style="position:absolute; inset:0; background:#333; border-radius:13px; transition:0.3s;"></span>
+            </label>
+            <span id="arcaToggleLabel" style="color:#888; font-size:0.9rem;">Desactivado</span>
+          </div>
+          <div id="arcaConfigFields" style="display:none; flex-direction:column; gap:12px;">
+            <div>
+              <label style="color:#aaa; font-size:0.85rem;">CUIT (sin guiones)</label>
+              <input id="arcaCuit" type="text" maxlength="11" placeholder="20304050607" style="width:100%; padding:10px; border-radius:8px; border:1px solid #444; background:#2a2a3e; color:#fff; box-sizing:border-box;">
+            </div>
+            <div>
+              <label style="color:#aaa; font-size:0.85rem;">Certificado Digital (PEM)</label>
+              <textarea id="arcaCert" rows="3" placeholder="-----BEGIN CERTIFICATE-----&#10;...&#10;-----END CERTIFICATE-----" style="width:100%; padding:10px; border-radius:8px; border:1px solid #444; background:#2a2a3e; color:#fff; font-family:monospace; font-size:0.8rem; resize:vertical; box-sizing:border-box;"></textarea>
+            </div>
+            <div>
+              <label style="color:#aaa; font-size:0.85rem;">Clave Privada (PEM)</label>
+              <textarea id="arcaKey" rows="3" placeholder="-----BEGIN PRIVATE KEY-----&#10;...&#10;-----END PRIVATE KEY-----" style="width:100%; padding:10px; border-radius:8px; border:1px solid #444; background:#2a2a3e; color:#fff; font-family:monospace; font-size:0.8rem; resize:vertical; box-sizing:border-box;"></textarea>
+            </div>
+            <div style="display:flex; gap:10px;">
+              <div style="flex:1;">
+                <label style="color:#aaa; font-size:0.85rem;">Punto de Venta</label>
+                <input id="arcaPtoVta" type="number" value="1" min="1" style="width:100%; padding:10px; border-radius:8px; border:1px solid #444; background:#2a2a3e; color:#fff; box-sizing:border-box;">
+              </div>
+              <div style="flex:1;">
+                <label style="color:#aaa; font-size:0.85rem;">Tipo Comprobante</label>
+                <select id="arcaTipoCbte" style="width:100%; padding:10px; border-radius:8px; border:1px solid #444; background:#2a2a3e; color:#fff; box-sizing:border-box;">
+                  <option value="6">Factura B</option>
+                  <option value="1">Factura A</option>
+                  <option value="11">Factura C</option>
+                  <option value="51">Factura M</option>
+                </select>
+              </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <input type="checkbox" id="arcaProduction" style="accent-color:#22c55e;">
+              <label for="arcaProduction" style="color:#aaa; font-size:0.85rem;">Modo Producción (si no está checked = Homologación/Testing)</label>
+            </div>
+            <div style="display:flex; gap:8px;">
+              <button onclick="guardarArcaConfig()" style="flex:1; background:#22c55e; color:#fff; border:none; padding:10px; border-radius:8px; font-weight:600; cursor:pointer;">💾 Guardar</button>
+              <button onclick="testArcaConexion()" style="flex:1; background:#3b82f6; color:#fff; border:none; padding:10px; border-radius:8px; font-weight:600; cursor:pointer;">🔗 Test Conexión</button>
+            </div>
+            <p id="arcaTestResult" style="display:none; padding:8px 12px; border-radius:6px; font-size:0.85rem; margin-top:4px;"></p>
           </div>
         </div>
       </div>
@@ -547,6 +601,43 @@
             </div>
             <button onclick="confirmarAjuste()" style="background:#22c55e; color:#fff; border:none; padding:12px; border-radius:8px; font-weight:600; cursor:pointer; font-size:1rem;">✓ Aplicar Ajuste</button>
           </div>
+        </div>
+      </div>
+
+      <!-- MODAL: COBRO CON FACTURACIÓN -->
+      <div id="modalCobro" class="modal-overlay">
+        <div class="modal-content" style="max-width:420px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <h3 style="color:#f97316;">💳 Cobrar Mesa</h3>
+            <button onclick="document.getElementById('modalCobro').classList.remove('active')" style="background:none; border:none; color:#888; font-size:1.3rem; cursor:pointer;">✕</button>
+          </div>
+          <input type="hidden" id="cobroMesaNombre">
+          <p id="cobroTotal" style="color:#22c55e; font-size:1.6rem; font-weight:800; text-align:center; margin-bottom:16px;"></p>
+
+          <div id="cobroFacturaOption" style="display:none; background:#18181b; border:1px solid #27272a; border-radius:10px; padding:14px; margin-bottom:14px;">
+            <label style="display:flex; align-items:center; gap:10px; cursor:pointer; color:#fff; font-weight:600;">
+              <input type="checkbox" id="cobroEmitirFactura" onchange="toggleCobroFactura()" style="accent-color:#22c55e; width:18px; height:18px;">
+              📄 Emitir Factura Electrónica
+            </label>
+            <div id="cobroFacturaFields" style="display:none; margin-top:12px; flex-direction:column; gap:10px;">
+              <div style="display:flex; gap:8px;">
+                <select id="cobroDocTipo" style="flex:1; padding:8px; border-radius:6px; border:1px solid #444; background:#2a2a3e; color:#fff; font-size:0.85rem;">
+                  <option value="99">Sin identificar</option>
+                  <option value="96">DNI</option>
+                  <option value="80">CUIT</option>
+                  <option value="86">CUIL</option>
+                </select>
+                <input id="cobroDocNro" type="number" placeholder="N° Documento" style="flex:2; padding:8px; border-radius:6px; border:1px solid #444; background:#2a2a3e; color:#fff; font-size:0.85rem;">
+              </div>
+              <input id="cobroRazonSocial" type="text" placeholder="Nombre / Razón Social (opcional)" style="width:100%; padding:8px; border-radius:6px; border:1px solid #444; background:#2a2a3e; color:#fff; font-size:0.85rem; box-sizing:border-box;">
+            </div>
+          </div>
+
+          <p id="cobroFacturaStatus" style="display:none; padding:8px 12px; border-radius:6px; font-size:0.85rem; margin-bottom:10px;"></p>
+
+          <button onclick="confirmarCobro()" id="btnCobrarConfirmar" style="width:100%; background:#22c55e; color:#fff; border:none; padding:14px; border-radius:8px; font-weight:700; cursor:pointer; font-size:1rem;">
+            💳 Confirmar Cobro
+          </button>
         </div>
       </div>
 
@@ -1201,12 +1292,47 @@
     }
 
     async function cobrarYLiberarMesa(nombreMesa) {
-      if (!confirm(`¿Confirmar cobro y liberar ${nombreMesa}?`)) return;
+      const pedidosMesa = rawPedidosCache.filter(p => 
+        (p.mesa || 'Mesa 1').toLowerCase() === nombreMesa.toLowerCase() && !p.pagado
+      );
+      if (!pedidosMesa.length) return alert('No hay pedidos pendientes para esta mesa');
+
+      const total = pedidosMesa.reduce((s, p) => s + (p.total || 0), 0);
+      document.getElementById('cobroMesaNombre').value = nombreMesa;
+      document.getElementById('cobroTotal').textContent = `$${total.toFixed(2)}`;
+      document.getElementById('cobroEmitirFactura').checked = false;
+      document.getElementById('cobroFacturaFields').style.display = 'none';
+      document.getElementById('cobroFacturaStatus').style.display = 'none';
+      document.getElementById('cobroDocNro').value = '';
+      document.getElementById('cobroRazonSocial').value = '';
+      document.getElementById('btnCobrarConfirmar').disabled = false;
+      document.getElementById('btnCobrarConfirmar').textContent = '💳 Confirmar Cobro';
+
+      if (arcaConfigCache.habilitado) {
+        document.getElementById('cobroFacturaOption').style.display = 'block';
+      } else {
+        document.getElementById('cobroFacturaOption').style.display = 'none';
+      }
+
+      document.getElementById('modalCobro').classList.add('active');
+    }
+
+    function toggleCobroFactura() {
+      const checked = document.getElementById('cobroEmitirFactura').checked;
+      document.getElementById('cobroFacturaFields').style.display = checked ? 'flex' : 'none';
+    }
+
+    async function confirmarCobro() {
+      const nombreMesa = document.getElementById('cobroMesaNombre').value;
+      const emitirFactura = document.getElementById('cobroEmitirFactura').checked;
+      const btn = document.getElementById('btnCobrarConfirmar');
+      btn.disabled = true;
 
       const pedidosMesa = rawPedidosCache.filter(p => 
         (p.mesa || 'Mesa 1').toLowerCase() === nombreMesa.toLowerCase() && !p.pagado
       );
 
+      // Marcar pedidos como pagados
       for (let p of pedidosMesa) {
         const res = await fetch(`/api/pedidos/${p.id}`, {
           method: 'PATCH',
@@ -1216,10 +1342,67 @@
         if (handleAuthError(res)) return;
       }
 
+      // Emitir factura si se pidió
+      if (emitirFactura) {
+        btn.textContent = '🔄 Emitiendo factura...';
+        const statusEl = document.getElementById('cobroFacturaStatus');
+        statusEl.style.display = 'block';
+        statusEl.style.background = '#1e3a5f';
+        statusEl.style.color = '#60a5fa';
+        statusEl.textContent = 'Conectando con ARCA...';
+
+        const allItems = pedidosMesa.flatMap(p => p.items || []);
+        const total = pedidosMesa.reduce((s, p) => s + (p.total || 0), 0);
+        const propina = pedidosMesa.reduce((s, p) => s + (p.propina || 0), 0);
+
+        try {
+          const res = await fetch('/api/facturas', {
+            method: 'POST',
+            headers: { ...adminHeaders(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              pedidoId: pedidosMesa[0]?.id,
+              cliente: {
+                tipoDoc: parseInt(document.getElementById('cobroDocTipo').value),
+                nroDoc: parseInt(document.getElementById('cobroDocNro').value) || 0,
+                razonSocial: document.getElementById('cobroRazonSocial').value.trim()
+              },
+              items: allItems,
+              total,
+              propina
+            })
+          });
+          const data = await res.json();
+          if (data.cae) {
+            statusEl.style.background = '#14532d';
+            statusEl.style.color = '#22c55e';
+            statusEl.innerHTML = `✅ Factura autorizada<br><strong>CAE:</strong> ${data.cae}<br><strong>N°:</strong> ${data.puntoVenta}-${String(data.numeroComprobante).padStart(8, '0')}<br><strong>Vto:</strong> ${data.caeVencimiento}`;
+          } else {
+            statusEl.style.background = '#451a1a';
+            statusEl.style.color = '#f87171';
+            statusEl.textContent = `❌ Error: ${data.error || 'No se pudo emitir'}`;
+            btn.disabled = false;
+            btn.textContent = '💳 Confirmar Cobro';
+            return;
+          }
+        } catch(e) {
+          statusEl.style.background = '#451a1a';
+          statusEl.style.color = '#f87171';
+          statusEl.textContent = '❌ Error de conexión con ARCA';
+          btn.disabled = false;
+          btn.textContent = '💳 Confirmar Cobro';
+          return;
+        }
+      }
+
       socket.emit('mesa_liberada', { mesa: nombreMesa });
       estadoMesasManual[nombreMesa] = 'libre';
       personasPorMesa[nombreMesa] = 0;
-      fetchDashboardData();
+
+      setTimeout(() => {
+        document.getElementById('modalCobro').classList.remove('active');
+        fetchDashboardData();
+      }, emitirFactura ? 3000 : 500);
+    }
     }
 
     function handleAuthError(res) {
@@ -1976,6 +2159,43 @@
             </div>
           `;
         }).join('');
+
+        // Cargar facturas del día
+        if (arcaConfigCache.habilitado && fechaParam) {
+          try {
+            const resFact = await fetch(`/api/facturas?desde=${fechaParam}&hasta=${fechaParam}`, { headers: adminHeaders() });
+            if (resFact.ok) {
+              const facturasDia = await resFact.json();
+              const container = document.getElementById('facturasDelDia');
+              const grid = document.getElementById('facturasDelDiaGrid');
+              if (facturasDia.length) {
+                container.style.display = 'block';
+                grid.innerHTML = `<table style="width:100%; border-collapse:collapse; font-size:0.85rem;">
+                  <thead><tr style="border-bottom:1px solid #444; color:#a1a1aa;">
+                    <th style="text-align:left; padding:6px;">N°</th>
+                    <th style="text-align:left; padding:6px;">Cliente</th>
+                    <th style="text-align:right; padding:6px;">Total</th>
+                    <th style="text-align:left; padding:6px;">CAE</th>
+                    <th style="text-align:left; padding:6px;">Vto CAE</th>
+                  </tr></thead>
+                  <tbody>${facturasDia.map(f => `
+                    <tr style="border-bottom:1px solid #27272a;">
+                      <td style="padding:6px; color:#fff; font-weight:600;">${f.puntoVenta}-${String(f.numeroComprobante).padStart(8, '0')}</td>
+                      <td style="padding:6px; color:#aaa;">${f.cliente?.razonSocial || 'Consumidor Final'}</td>
+                      <td style="padding:6px; text-align:right; color:#22c55e; font-weight:700;">$${Number(f.total).toFixed(2)}</td>
+                      <td style="padding:6px; color:#888; font-family:monospace; font-size:0.8rem;">${f.cae}</td>
+                      <td style="padding:6px; color:#aaa;">${f.caeVencimiento || '-'}</td>
+                    </tr>
+                  `).join('')}</tbody>
+                </table>`;
+              } else {
+                container.style.display = 'none';
+              }
+            }
+          } catch(e) {}
+        } else {
+          document.getElementById('facturasDelDia').style.display = 'none';
+        }
       } catch (err) {
         console.error('Error al cargar historial:', err);
       }
@@ -2011,6 +2231,7 @@
         document.getElementById('tkLeyenda').value = config.leyenda || '';
         document.getElementById('publicUrlInput').value = cfg.publicUrl || '';
         if (cfg.publicUrl) appPublicUrl = cfg.publicUrl;
+        cargarArcaConfig();
       } catch (err) {
         console.error('Error al cargar config:', err);
       }
@@ -2047,6 +2268,91 @@
         body: JSON.stringify(config)
       });
       alert('✅ Configuración del ticket guardada');
+    }
+
+    // FUNCIONES ARCA
+    let arcaConfigCache = {};
+
+    async function cargarArcaConfig() {
+      try {
+        const res = await fetch('/api/arca/config', { headers: adminHeaders() });
+        if (!res.ok) return;
+        arcaConfigCache = await res.json();
+        document.getElementById('arcaHabilitado').checked = arcaConfigCache.habilitado || false;
+        updateArcaToggleUI();
+        if (arcaConfigCache.cuit) document.getElementById('arcaCuit').value = arcaConfigCache.cuit;
+        if (arcaConfigCache.puntoVenta) document.getElementById('arcaPtoVta').value = arcaConfigCache.puntoVenta;
+        if (arcaConfigCache.tipoComprobante) document.getElementById('arcaTipoCbte').value = arcaConfigCache.tipoComprobante;
+        document.getElementById('arcaProduction').checked = arcaConfigCache.production || false;
+      } catch(e) {}
+    }
+
+    function toggleArcaConfig() {
+      updateArcaToggleUI();
+    }
+
+    function updateArcaToggleUI() {
+      const checked = document.getElementById('arcaHabilitado').checked;
+      const slider = document.getElementById('arcaToggleSlider');
+      const label = document.getElementById('arcaToggleLabel');
+      const fields = document.getElementById('arcaConfigFields');
+      if (checked) {
+        slider.style.background = '#22c55e';
+        label.textContent = 'Activado';
+        label.style.color = '#22c55e';
+        fields.style.display = 'flex';
+      } else {
+        slider.style.background = '#333';
+        label.textContent = 'Desactivado';
+        label.style.color = '#888';
+        fields.style.display = 'none';
+      }
+    }
+
+    async function guardarArcaConfig() {
+      const data = {
+        habilitado: document.getElementById('arcaHabilitado').checked,
+        cuit: document.getElementById('arcaCuit').value.trim(),
+        puntoVenta: document.getElementById('arcaPtoVta').value,
+        tipoComprobante: document.getElementById('arcaTipoCbte').value,
+        production: document.getElementById('arcaProduction').checked
+      };
+      const certVal = document.getElementById('arcaCert').value.trim();
+      const keyVal = document.getElementById('arcaKey').value.trim();
+      if (certVal && !certVal.includes('...')) data.cert = certVal;
+      if (keyVal && keyVal !== '***') data.key = keyVal;
+
+      await fetch('/api/arca/config', {
+        method: 'POST', headers: { ...adminHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      arcaInstance = null;
+      alert('✅ Configuración ARCA guardada');
+    }
+
+    async function testArcaConexion() {
+      const resultEl = document.getElementById('arcaTestResult');
+      resultEl.style.display = 'block';
+      resultEl.style.background = '#1e3a5f';
+      resultEl.style.color = '#60a5fa';
+      resultEl.textContent = '🔄 Conectando con ARCA...';
+      try {
+        const res = await fetch('/api/arca/test', { method: 'POST', headers: adminHeaders() });
+        const data = await res.json();
+        if (data.ok) {
+          resultEl.style.background = '#14532d';
+          resultEl.style.color = '#22c55e';
+          resultEl.textContent = `✅ Conectado (${data.modo}) — Último comprobante: ${data.ultimoComprobante} — Pto Vta: ${data.puntoVenta}`;
+        } else {
+          resultEl.style.background = '#451a1a';
+          resultEl.style.color = '#f87171';
+          resultEl.textContent = `❌ Error: ${data.error}`;
+        }
+      } catch(e) {
+        resultEl.style.background = '#451a1a';
+        resultEl.style.color = '#f87171';
+        resultEl.textContent = '❌ Error de conexión con el servidor';
+      }
     }
 
     async function imprimirTicketMesa(nombreMesa) {

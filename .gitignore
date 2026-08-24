@@ -9,6 +9,8 @@ resenas.json
 auth.json
 insumos.json
 recetas.json
+arca.json
+facturas.json
 config.json
 cloudflared.exe
 .env
