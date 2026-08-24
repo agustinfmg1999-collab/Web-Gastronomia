@@ -15,8 +15,28 @@ const io = new Server(server);         // Inicializamos Socket.io
 
 const PORT = process.env.PORT || 3000;
 
-app.use(express.json());
-app.use(express.static(path.join(__dirname, './')));
+app.use(express.json({ limit: '1mb' }));
+
+// Body guard: si no llega JSON body en POST/PATCH, retorna 400 en vez de crashear
+app.use((req, res, next) => {
+  if ((req.method === 'POST' || req.method === 'PATCH') && req.headers['content-type']?.includes('application/json') && req.body === undefined) {
+    return res.status(400).json({ error: 'Body JSON inválido' });
+  }
+  next();
+});
+
+// Utilidad para escapar HTML (prevenir XSS en innerHTML)
+function escHtml(str) {
+  if (typeof str !== 'string') return str;
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// SERVIR SOLO DIRECTORIOS SEGUROS (no exponer JSON de datos, backups, ni archivos sensibles)
+app.use(express.static(path.join(__dirname, 'public')));      // /sounds, /brand, /assets
+app.use('/src', express.static(path.join(__dirname, 'src'))); // /src/js, /src/styles
+app.get('/sw.js', (req, res) => res.sendFile(path.join(__dirname, 'sw.js')));
+app.get('/index.html', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
+app.get('/cliente.html', (req, res) => res.sendFile(path.join(__dirname, 'cliente.html')));
 
 const PEDIDOS_FILE = path.join(__dirname, 'pedidos.json');
 const MOZO_FILE = path.join(__dirname, 'mozo.json');
@@ -32,18 +52,22 @@ const FACTURAS_FILE = path.join(__dirname, 'facturas.json');
 const BACKUP_DIR = path.join(__dirname, 'backups');
 
 const ADMIN_PASSWORD = 'admin123';
-let activeTokens = new Set();
+let activeTokens = new Map(); // token → createdAt (with TTL)
+const TOKEN_TTL = 24 * 60 * 60 * 1000; // 24 horas
 
 function generateToken() {
   const token = crypto.randomBytes(32).toString('hex');
-  activeTokens.add(token);
+  activeTokens.set(token, Date.now());
   return token;
 }
 
 function authMiddleware(req, res, next) {
   const token = req.headers['x-auth-token'];
-  if (!token || !activeTokens.has(token)) {
-    return res.status(401).json({ error: 'No autorizado' });
+  if (!token) return res.status(401).json({ error: 'No autorizado' });
+  const createdAt = activeTokens.get(token);
+  if (!createdAt || Date.now() - createdAt > TOKEN_TTL) {
+    activeTokens.delete(token);
+    return res.status(401).json({ error: 'Sesión expirada' });
   }
   next();
 }
@@ -56,6 +80,12 @@ function readData(filePath) {
   } catch (err) {
     return [];
   }
+}
+
+// Helper: fecha local YYYY-MM-DD (evita problemas de timezone con toISOString)
+function localDate(d) {
+  const dt = d instanceof Date ? d : new Date(d);
+  return dt.toLocaleDateString('sv-SE'); // YYYY-MM-DD en locale español
 }
 
 function saveData(filePath, data) {
@@ -250,7 +280,7 @@ app.post('/api/mesas', authMiddleware, (req, res) => {
 });
 
 // ENDPOINTS PEDIDOS
-app.get('/api/pedidos', (req, res) => res.json(pedidos));
+app.get('/api/pedidos', authMiddleware, (req, res) => res.json(pedidos));
 
 function descontarStockDeItems(items) {
   let descontado = [];
@@ -274,11 +304,24 @@ function descontarStockDeItems(items) {
 }
 
 app.post('/api/pedidos', (req, res) => {
+  const clientItems = req.body.items || [];
+  if (!Array.isArray(clientItems)) return res.status(400).json({ error: 'items debe ser un array' });
+
+  // Recalcular precios server-side desde el menú para evitar manipulación del cliente
+  const recalculatedItems = clientItems.map(item => {
+    const menuItem = menuData.find(m => String(m.id) === String(item.id) || m.nombre === item.nombre);
+    const precio = menuItem ? menuItem.precio : (item.precio || 0);
+    const cantidad = Math.max(1, parseInt(item.cantidad) || 1);
+    return { ...item, precioUnitario: precio, cantidad, subtotal: precio * cantidad };
+  });
+  const serverTotal = recalculatedItems.reduce((sum, i) => sum + i.subtotal, 0);
+
   const nuevoPedido = {
-    id: `PED-${Math.floor(100000 + Math.random() * 900000)}`,
+    id: `PED-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`,
     mesa: req.body.mesa || '1',
-    items: req.body.items || [],
-    total: req.body.total || 0,
+    items: recalculatedItems,
+    total: serverTotal,
+    propina: 0,
     estado: 'pendiente',
     tiempoEstimado: calcularTiempoEstimado(),
     fecha: new Date().toISOString()
@@ -288,7 +331,6 @@ app.post('/api/pedidos', (req, res) => {
   
   descontarStockDeItems(nuevoPedido.items);
 
-  // Notificamos a la cocina de nuevos pedidos en tiempo real
   io.emit('nuevo_pedido', nuevoPedido);
 
   res.status(201).json(nuevoPedido);
@@ -389,7 +431,7 @@ app.post('/api/mozo', (req, res) => {
   res.status(201).json(nuevaLlamada);
 });
 
-app.patch('/api/mozo/:id', (req, res) => {
+app.patch('/api/mozo/:id', authMiddleware, (req, res) => {
   const llamada = llamadasMozo.find(l => l.id === req.params.id);
   if (!llamada) return res.status(404).json({ error: 'Llamada no encontrada' });
 
@@ -514,7 +556,7 @@ app.post('/api/auth/logout', (req, res) => {
 
 // ENDPOINTS CIERRE DE CAJA
 app.get('/api/cierre-caja', authMiddleware, (req, res) => {
-  const fecha = req.query.fecha || new Date().toISOString().slice(0, 10);
+  const fecha = req.query.fecha || localDate(new Date());
   const diaInicio = new Date(fecha + 'T00:00:00');
   const diaFin = new Date(fecha + 'T23:59:59.999');
 
@@ -564,7 +606,7 @@ app.get('/api/cierre-caja', authMiddleware, (req, res) => {
 
 // ENDPOINTS REPORTES Y ESTADÍSTICAS
 app.get('/api/reportes', authMiddleware, (req, res) => {
-  const desde = req.query.desde || new Date().toISOString().slice(0, 10);
+  const desde = req.query.desde || localDate(new Date());
   const hasta = req.query.hasta || desde;
   const fechaDesde = new Date(desde + 'T00:00:00');
   const fechaHasta = new Date(hasta + 'T23:59:59.999');
@@ -638,7 +680,7 @@ app.get('/api/reportes', authMiddleware, (req, res) => {
   // Pedidos por día (para tendencia)
   const pedidosPorDia = {};
   pedidosRango.forEach(p => {
-    const dia = new Date(p.fecha).toISOString().slice(0, 10);
+    const dia = localDate(new Date(p.fecha));
     if (!pedidosPorDia[dia]) pedidosPorDia[dia] = { ventas: 0, pedidos: 0, propinas: 0 };
     pedidosPorDia[dia].ventas += (p.total || 0);
     pedidosPorDia[dia].pedidos++;
@@ -753,7 +795,7 @@ app.post('/api/facturas', authMiddleware, async (req, res) => {
 
     const qrData = {
       ver: 1,
-      fecha: new Date().toISOString().slice(0, 10).replace(/-/g, ''),
+      fecha: localDate(new Date()).replace(/-/g, ''),
       cuit: arcaConfig.cuit,
       ptoVta: arcaConfig.puntoVenta,
       tipoCmp: arcaConfig.tipoComprobante,
@@ -826,6 +868,7 @@ app.get('/api/facturas/:id', authMiddleware, (req, res) => {
 });
 
 // BACKUP AUTOMÁTICO
+const MAX_BACKUPS = 72; // ~3 días de backups por hora
 function crearBackup() {
   try {
     const now = new Date();
@@ -836,6 +879,21 @@ function crearBackup() {
         fs.copyFileSync(f, path.join(carpeta, path.basename(f)));
       }
     });
+
+    // Prune backups antiguos
+    if (fs.existsSync(BACKUP_DIR)) {
+      const dirs = fs.readdirSync(BACKUP_DIR).sort().reverse();
+      if (dirs.length > MAX_BACKUPS) {
+        dirs.slice(MAX_BACKUPS).forEach(d => {
+          const dirPath = path.join(BACKUP_DIR, d);
+          if (fs.statSync(dirPath).isDirectory()) {
+            fs.readdirSync(dirPath).forEach(f => fs.unlinkSync(path.join(dirPath, f)));
+            fs.rmdirSync(dirPath);
+          }
+        });
+      }
+    }
+
     console.log(`📦 Backup creado en ${carpeta}`);
   } catch (err) {
     console.error('Error al crear backup:', err);

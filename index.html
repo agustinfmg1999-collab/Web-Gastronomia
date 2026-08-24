@@ -135,7 +135,7 @@
     .mesa-item-row:hover { background: #18181b; }
 
     @media (max-width: 768px) {
-      .app-layout { flex-direction: column; }
+      .app-container { flex-direction: column; }
       .sidebar { width: 100%; height: auto; flex-direction: row; overflow-x: auto; padding: 8px; position: relative; }
       .sidebar .nav-btn { flex-direction: row; white-space: nowrap; padding: 8px 14px; font-size: 0.8rem; }
       .sidebar .nav-btn span { font-size: 0.9rem; }
@@ -822,6 +822,13 @@
     let isFirstLoad = true;
     let audioEnabled = true;
     let currentTab = 'dashboard';
+
+    // Helper: fecha local YYYY-MM-DD (evita problemas UTC)
+    function localDateStr(d) {
+      const dt = d instanceof Date ? d : new Date(d);
+      return dt.toLocaleDateString('sv-SE');
+    }
+
     let rawPedidosCache = [];
     let mesasActivasViewer = {};
     let personasPorMesa = {};
@@ -1403,7 +1410,6 @@
         fetchDashboardData();
       }, emitirFactura ? 3000 : 500);
     }
-    }
 
     function handleAuthError(res) {
       if (res.status === 401) {
@@ -1466,7 +1472,11 @@
       }).join('');
     }
 
-    async function attendWaiterCall(id) { await fetch(`/api/mozo/${id}`, { method: 'PATCH' }); fetchDashboardData(); }
+    async function attendWaiterCall(id) {
+      const res = await fetch(`/api/mozo/${id}`, { method: 'PATCH', headers: adminHeaders() });
+      if (handleAuthError(res)) return;
+      fetchDashboardData();
+    }
 
     /* LÓGICA DE MENÚ Y CATEGORÍAS */
     function renderMenuView() {
@@ -2083,9 +2093,9 @@
         });
 
         let filtrados = pedidos;
-        let fechaParam = filtroDia || new Date().toISOString().slice(0, 10);
+        let fechaParam = filtroDia || localDateStr(new Date());
         if (filtroDia) {
-          filtrados = pedidos.filter(p => new Date(p.fecha).toISOString().slice(0, 10) === filtroDia);
+          filtrados = pedidos.filter(p => localDateStr(new Date(p.fecha)) === filtroDia);
         }
         if (filtroMesa !== 'todas') {
           filtrados = filtrados.filter(p => (p.mesa || '1') === filtroMesa);
@@ -2792,7 +2802,7 @@
     function rapidoReportes() {
       const val = document.getElementById('reporteRapido').value;
       const hoy = new Date();
-      const fmt = d => d.toISOString().slice(0, 10);
+      const fmt = d => localDateStr(d);
       let desde = fmt(hoy);
       let hasta = fmt(hoy);
       if (val === '7d') { desde = fmt(new Date(hoy - 6 * 86400000)); }
@@ -2960,8 +2970,8 @@
     }
 
     setInterval(fetchDashboardData, 3000);
-    document.getElementById('filtroDiaHistorial').value = new Date().toISOString().slice(0, 10);
-    const hoyStr = new Date().toISOString().slice(0, 10);
+    document.getElementById('filtroDiaHistorial').value = localDateStr(new Date());
+    const hoyStr = localDateStr(new Date());
     document.getElementById('reporteDesde').value = hoyStr;
     document.getElementById('reporteHasta').value = hoyStr;
     fetchDashboardData();

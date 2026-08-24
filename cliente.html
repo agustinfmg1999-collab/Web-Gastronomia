@@ -272,7 +272,12 @@
 
     let selectedStars = 5;
     const urlParams = new URLSearchParams(window.location.search);
-    let currentMesa = urlParams.get('mesa') || 'Mesa 1';
+    function getMesaFromUrl() {
+      const m = urlParams.get('mesa');
+      if (m && m !== 'undefined' && m !== 'null' && m.trim() !== '') return m.trim();
+      return '1';
+    }
+    let currentMesa = getMesaFromUrl();
 
     let farewellTimeout = null;
     let farewellInterval = null;

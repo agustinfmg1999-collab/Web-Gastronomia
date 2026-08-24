@@ -2,6 +2,13 @@
 // APLICACIÓN INTEGRADA DE CARTA DIGITAL & CARRITO
 // ==========================================
 
+function escHtml(str) {
+  if (typeof str !== 'string') return '';
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
 // --- ESTADO GLOBAL CARRITO & LOCALSTORAGE ---
 const CART_STORAGE_KEY = 'el_patio_cart_v1';
 
@@ -506,26 +513,23 @@ function addToCart(product) {
   updateCartUI();
 }
 
-function changeQuantity(productId, delta) {
-  const id = String(productId);
-  const itemIndex = cart.findIndex(item => String(item.id) === id);
+function changeQuantity(itemIndex, delta) {
+  const idx = parseInt(itemIndex);
+  if (idx < 0 || idx >= cart.length) return;
+  cart[idx].quantity += delta;
 
-  if (itemIndex !== -1) {
-    cart[itemIndex].quantity += delta;
-
-    // Si la cantidad es 0 o menor, eliminamos el ítem del carrito
-    if (cart[itemIndex].quantity <= 0) {
-      cart.splice(itemIndex, 1);
-    }
-
-    saveCartToStorage();
-    updateCartUI();
+  if (cart[idx].quantity <= 0) {
+    cart.splice(idx, 1);
   }
+
+  saveCartToStorage();
+  updateCartUI();
 }
 
-function removeFromCart(productId) {
-  const id = String(productId);
-  cart = cart.filter(item => String(item.id) !== id);
+function removeFromCart(itemIndex) {
+  const idx = parseInt(itemIndex);
+  if (idx < 0 || idx >= cart.length) return;
+  cart.splice(idx, 1);
   saveCartToStorage();
   updateCartUI();
 }
@@ -571,19 +575,19 @@ function updateCartUI() {
       </div>
     `;
 
-    const itemsHtml = currentCart.map(item => `
+    const itemsHtml = currentCart.map((item, idx) => `
       <div class="cart-item" style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px; border-bottom: 1px solid #27272a; padding-bottom: 8px;">
         <div style="flex:1;">
-          <strong style="color:#fff;">${item.name || item.nombre}</strong>
+          <strong style="color:#fff;">${escHtml(item.name || item.nombre)}</strong>
           <div style="color:#a1a1aa; font-size: 0.85rem;">$${(item.price * item.quantity).toFixed(2)}</div>
         </div>
         
         <div style="display:flex; align-items:center; gap: 8px;">
-          <button onclick="changeQuantity(${item.id}, -1)" style="padding: 4px 10px; cursor:pointer; background:#27272a; color:#fff; border:1px solid #3f3f46; border-radius:6px; font-weight:bold;">-</button>
+          <button onclick="changeQuantity(${idx}, -1)" style="padding: 4px 10px; cursor:pointer; background:#27272a; color:#fff; border:1px solid #3f3f46; border-radius:6px; font-weight:bold;">-</button>
           <span style="font-weight:bold; min-width:18px; text-align:center;">${item.quantity}</span>
-          <button onclick="changeQuantity(${item.id}, 1)" style="padding: 4px 10px; cursor:pointer; background:#27272a; color:#fff; border:1px solid #3f3f46; border-radius:6px; font-weight:bold;">+</button>
+          <button onclick="changeQuantity(${idx}, 1)" style="padding: 4px 10px; cursor:pointer; background:#27272a; color:#fff; border:1px solid #3f3f46; border-radius:6px; font-weight:bold;">+</button>
           
-          <button onclick="removeFromCart(${item.id})" style="margin-left:6px; background:transparent; color:#ef4444; border:none; font-size:1.1rem; cursor:pointer; padding:2px 6px;" title="Eliminar del pedido">
+          <button onclick="removeFromCart(${idx})" style="margin-left:6px; background:transparent; color:#ef4444; border:none; font-size:1.1rem; cursor:pointer; padding:2px 6px;" title="Eliminar del pedido">
             ✕
           </button>
         </div>
@@ -621,7 +625,7 @@ function setupEvents() {
   const sendBtn = document.getElementById('sendOrderBtn');
 
   if (openBtn && cartModal) {
-    openBtn.addEventListener('click', () => cartModal.classList.add('open', 'active'));
+    openBtn.addEventListener('click', () => cartModal.classList.add('active'));
   }
   if (closeBtn && cartModal) {
     closeBtn.addEventListener('click', closeModal);
@@ -634,19 +638,25 @@ function setupEvents() {
 function closeModal() {
   const cartModal = document.getElementById('cartModal');
   if (cartModal) {
-    cartModal.classList.remove('open', 'active');
+    cartModal.classList.remove('active');
   }
 }
 
+let orderSending = false;
+
 async function confirmAndSendOrder() {
+  if (orderSending) return;
   const currentCart = typeof cart !== 'undefined' ? cart : [];
   if (currentCart.length === 0) {
     alert('El carrito está vacío. Agregá algún producto antes de enviar.');
     return;
   }
 
+  orderSending = true;
+  const sendBtn = document.getElementById('sendOrderBtn');
+  if (sendBtn) { sendBtn.disabled = true; sendBtn.textContent = '⏳ Enviando...'; }
+
   const orderData = {
-    id: `PED-${Date.now().toString().slice(-6)}`,
     mesa: getMesaNumber(),
     items: currentCart.map(item => ({
       id: item.id,
@@ -695,6 +705,10 @@ async function confirmAndSendOrder() {
     alert(`[MODO PRUEBA] Pedido registrado para la Mesa ${orderData.mesa}`);
     clearCart();
     closeModal();
+  } finally {
+    orderSending = false;
+    const sendBtn = document.getElementById('sendOrderBtn');
+    if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = '📲 Enviar Pedido a Cocina'; }
   }
 }
 // --- LÓGICA Y CONTROL DEL MODAL DE MOZO ---
@@ -706,7 +720,6 @@ window.toggleWaiterModal = function(show) {
   const modal = document.getElementById('waiterModal');
   if (modal) {
     modal.classList.toggle('active', show);
-    modal.classList.toggle('open', show);
   }
 };
 
@@ -718,6 +731,8 @@ window.callWaiter = async function(tipo) {
     return;
   }
 
+  waiterCallCooldown = true;
+  startWaiterCooldown();
   const mesa = typeof getMesaNumber === 'function' ? getMesaNumber() : '1';
   const callPayload = {
     mesa: mesa,
