@@ -242,6 +242,13 @@
       }
     });
 
+    socket.on('llamada_atendida', (data) => {
+      if (data.mesa && data.mesa.toLowerCase() === currentMesa.toLowerCase()) {
+        showToast('✅ ¡Ya van a ir a tu mesa!');
+        if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+      }
+    });
+
     socket.on('pedido_actualizado', (pedido) => {
       if (pedido && pedido.mesa && pedido.mesa.toLowerCase() === currentMesa.toLowerCase()) {
         const el = document.getElementById('tiempoEstimado');

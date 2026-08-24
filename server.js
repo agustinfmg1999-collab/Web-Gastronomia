@@ -371,6 +371,7 @@ app.post('/api/mozo', (req, res) => {
   };
   llamadasMozo.push(nuevaLlamada);
   saveData(MOZO_FILE, llamadasMozo);
+  io.emit('nueva_llamada_mozo', nuevaLlamada);
   res.status(201).json(nuevaLlamada);
 });
 
@@ -379,7 +380,9 @@ app.patch('/api/mozo/:id', (req, res) => {
   if (!llamada) return res.status(404).json({ error: 'Llamada no encontrada' });
 
   llamada.atendido = true;
+  llamada.atendidoEn = new Date().toISOString();
   saveData(MOZO_FILE, llamadasMozo);
+  io.emit('llamada_atendida', { id: llamada.id, mesa: llamada.mesa, tipo: llamada.tipo });
   res.json(llamada);
 });
 
@@ -662,6 +665,21 @@ function crearBackup() {
   }
 }
 setInterval(crearBackup, 3600000);
+
+// LIMPIEZA AUTOMÁTICA DE LLAMADAS ATENDIDAS (>30 min)
+function limpiarLlamadasAtendidas() {
+  const limite = Date.now() - 30 * 60 * 1000;
+  const antes = llamadasMozo.length;
+  llamadasMozo = llamadasMozo.filter(l => {
+    if (!l.atendido) return true;
+    const fechaAtendido = new Date(l.atendidoEn || l.fecha).getTime();
+    return fechaAtendido > limite;
+  });
+  if (llamadasMozo.length !== antes) {
+    saveData(MOZO_FILE, llamadasMozo);
+  }
+}
+setInterval(limpiarLlamadasAtendidas, 5 * 60 * 1000);
 
 // TIEMPO ESTIMADO DE ESPERA
 function calcularTiempoEstimado() {

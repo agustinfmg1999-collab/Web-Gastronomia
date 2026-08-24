@@ -713,17 +713,15 @@ window.toggleWaiterModal = function(show) {
 // Exponemos la función global para procesar la llamada
 window.callWaiter = async function(tipo) {
   if (waiterCallCooldown) {
-    alert('Ya notificaste al mozo. Por favor aguardá un momento antes de volver a llamar.');
+    if (typeof showToast === 'function') { showToast('⏳ Ya notificaste al mozo. Aguardá un momento.'); }
+    else { alert('Ya notificaste al mozo. Por favor aguardá un momento antes de volver a llamar.'); }
     return;
   }
 
   const mesa = typeof getMesaNumber === 'function' ? getMesaNumber() : '1';
   const callPayload = {
-    id: `MOZO-${Date.now().toString().slice(-6)}`,
     mesa: mesa,
-    tipo: tipo,
-    timestamp: new Date().toISOString(),
-    estado: 'pendiente'
+    tipo: tipo
   };
 
   try {
@@ -734,13 +732,20 @@ window.callWaiter = async function(tipo) {
     });
 
     if (response.ok) {
-      alert(`🔔 ¡Mozo notificado para la Mesa ${mesa}! Motivo: ${tipo}`);
+      if (typeof showToast === 'function') {
+        showToast(`🔔 ¡Mozo notificado! Te atienden pronto.`);
+      } else {
+        alert(`🔔 ¡Mozo notificado para la Mesa ${mesa}!`);
+      }
     } else {
       throw new Error('Servidor no disponible');
     }
   } catch (error) {
-    // Respuesta fallback si aún no está activo el backend
-    alert(`[MODO PRUEBA] 🔔 Notificación enviada al mozo (Mesa ${mesa}): "${tipo}"`);
+    if (typeof showToast === 'function') {
+      showToast('⚠️ No se pudo notificar al mozo. Intentá de nuevo.');
+    } else {
+      alert('No se pudo notificar al mozo. Intentá de nuevo.');
+    }
   }
 
   window.toggleWaiterModal(false);

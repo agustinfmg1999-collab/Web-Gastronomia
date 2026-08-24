@@ -50,6 +50,8 @@
     .alertas-mozo-header { font-size: 1.1rem; font-weight: 700; color: #f97316; display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
     .alertas-container-flex { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
     .card-waiter-top { background: #2a0f0f; border: 1px solid #ef4444; border-radius: 10px; padding: 10px 16px; display: flex; align-items: center; gap: 16px; box-shadow: 0 0 10px rgba(239, 68, 68, 0.2); }
+    .card-waiter-urgente { animation: pulseAlert 1s infinite; }
+    @keyframes pulseAlert { 0%, 100% { box-shadow: 0 0 10px rgba(239, 68, 68, 0.2); } 50% { box-shadow: 0 0 20px rgba(239, 68, 68, 0.6); } }
 
     /* GRILLA DASHBOARD */
     .mesas-dashboard-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 16px; margin-bottom: 24px; }
@@ -202,8 +204,8 @@
       <div class="top-header">
         <h1 class="page-title">PANEL DE ADMINISTRACIÓN -</h1>
         <div style="display: flex; gap: 12px; align-items: center;">
-          <button id="btnSoundToggle" onclick="toggleAudio()" style="background: #18181b; border: 1px solid #27272a; color: #f4f4f5; padding: 8px 14px; border-radius: 20px; cursor: pointer; font-size: 0.85rem; font-weight: 600;">
-            🔇 Sonido: Off
+          <button id="btnSoundToggle" onclick="toggleAudio()" style="background: #15803d; border: 1px solid #27272a; color: #f4f4f5; padding: 8px 14px; border-radius: 20px; cursor: pointer; font-size: 0.85rem; font-weight: 600;">
+            🔊 Sonido: On
           </button>
           <span style="font-size: 0.85rem; color: #22c55e; background: #14532d; padding: 4px 12px; border-radius: 20px; font-weight: 600;">● En vivo</span>
         </div>
@@ -727,7 +729,7 @@
     let knownOrderIds = new Set();
     let knownWaiterCallIds = new Set();
     let isFirstLoad = true;
-    let audioEnabled = false;
+    let audioEnabled = true;
     let currentTab = 'dashboard';
     let rawPedidosCache = [];
     let mesasActivasViewer = {};
@@ -847,7 +849,7 @@
     function toggleAudio() {
       audioEnabled = !audioEnabled;
       const btn = document.getElementById('btnSoundToggle');
-      if (audioEnabled) { btn.innerHTML = '🔔 Sonido: On'; btn.style.background = '#15803d'; playChime('pedido'); }
+      if (audioEnabled) { btn.innerHTML = '🔊 Sonido: On'; btn.style.background = '#15803d'; playChime('pedido'); }
       else { btn.innerHTML = '🔇 Sonido: Off'; btn.style.background = '#18181b'; }
     }
 
@@ -1249,15 +1251,36 @@
         return; 
       }
 
-      container.innerHTML = activas.map(l => `
-        <div class="card-waiter-top">
-          <div>
-            <strong style="color:#ef4444; font-size: 1.05rem;">${l.mesa}</strong>
-            <span style="font-size:0.85rem; color:#e4e4e7; margin-left: 6px;">(${l.tipo})</span>
-          </div>
-          <button onclick="attendWaiterCall('${l.id}')" style="background:#ef4444; color:#fff; border:none; padding:6px 14px; border-radius:6px; font-weight:700; cursor:pointer;">Atender</button>
-        </div>
-      `).join('');
+      container.innerHTML = activas.map(l => {
+        const antiguedad = Math.floor((Date.now() - new Date(l.fecha).getTime()) / 1000);
+        const mins = Math.floor(antiguedad / 60);
+        const secs = antiguedad % 60;
+        const tiempoLabel = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+
+        let borderColor, bgColor, shadowColor, badgeColor, badgeBg;
+        if (antiguedad > 300) {
+          borderColor = '#ef4444'; bgColor = '#4c1010'; shadowColor = 'rgba(239,68,68,0.4)';
+          badgeColor = '#fff'; badgeBg = '#ef4444';
+        } else if (antiguedad > 120) {
+          borderColor = '#ef4444'; bgColor = '#3a1515'; shadowColor = 'rgba(239,68,68,0.25)';
+          badgeColor = '#fff'; badgeBg = '#dc2626';
+        } else {
+          borderColor = '#f97316'; bgColor = '#2a1a0a'; shadowColor = 'rgba(249,115,22,0.2)';
+          badgeColor = '#fff'; badgeBg = '#f97316';
+        }
+
+        const pulseStyle = antiguedad > 300 ? 'animation: pulseWaiter 1s ease-in-out infinite;' : '';
+
+        return `
+          <div class="card-waiter-top" style="border-color:${borderColor}; background:${bgColor}; box-shadow:0 0 10px ${shadowColor}; ${pulseStyle}">
+            <div>
+              <strong style="color:${borderColor}; font-size: 1.05rem;">${l.mesa}</strong>
+              <span style="font-size:0.85rem; color:#e4e4e7; margin-left: 6px;">(${l.tipo})</span>
+            </div>
+            <span style="background:${badgeBg}; color:${badgeColor}; padding:2px 8px; border-radius:12px; font-size:0.75rem; font-weight:700;">⏱ ${tiempoLabel}</span>
+            <button onclick="attendWaiterCall('${l.id}')" style="background:#ef4444; color:#fff; border:none; padding:6px 14px; border-radius:6px; font-weight:700; cursor:pointer;">Atender</button>
+          </div>`;
+      }).join('');
     }
 
     async function attendWaiterCall(id) { await fetch(`/api/mozo/${id}`, { method: 'PATCH' }); fetchDashboardData(); }
@@ -2180,6 +2203,16 @@
     socket.on('stock_actualizado', () => {
       if (currentTab === 'insumos') renderInsumosView();
       actualizarBadgeStock();
+    });
+
+    socket.on('nueva_llamada_mozo', (llamada) => {
+      knownWaiterCallIds.add(llamada.id);
+      if (currentTab === 'dashboard') fetchDashboardData();
+      playChime('mozo');
+    });
+
+    socket.on('llamada_atendida', (data) => {
+      if (currentTab === 'dashboard') fetchDashboardData();
     });
 
     let insumosCache = [];
