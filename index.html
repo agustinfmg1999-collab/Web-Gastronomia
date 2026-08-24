@@ -193,6 +193,12 @@
         <button id="navReportes" class="nav-btn" onclick="switchTab('reportes')">
           <span>📊</span> Reportes
         </button>
+        <button id="navCaja" class="nav-btn" onclick="switchTab('caja')">
+          <span>💰</span> Caja
+        </button>
+        <button id="navTurnos" class="nav-btn" onclick="switchTab('turnos')">
+          <span>🕐</span> Turnos
+        </button>
         <button id="navTicket" class="nav-btn" onclick="switchTab('ticket')">
           <span>🖨️</span> Config Ticket
         </button>
@@ -527,6 +533,35 @@
         <div id="usuariosGrid"></div>
       </div>
 
+      <!-- VISTA: CAJA DIARIA -->
+      <div id="viewCaja" style="display: none; flex-direction: column; gap: 20px;">
+        <h2 style="font-size: 1.4rem; color: #fff;">💰 Caja Diaria</h2>
+        <div id="cajaEstado"></div>
+        <div id="cajaAcciones" style="display:none;">
+          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:12px; margin-bottom:16px;">
+            <button onclick="modalEgreso()" style="background:#ef4444; color:#fff; border:none; padding:14px; border-radius:10px; font-weight:700; cursor:pointer; font-size:0.9rem;">💸 Egreso</button>
+            <button onclick="modalIngresoExtra()" style="background:#22c55e; color:#fff; border:none; padding:14px; border-radius:10px; font-weight:700; cursor:pointer; font-size:0.9rem;">📥 Ingreso Extra</button>
+            <button onclick="modalArqueo()" style="background:#3b82f6; color:#fff; border:none; padding:14px; border-radius:10px; font-weight:700; cursor:pointer; font-size:0.9rem;">🔍 Arqueo</button>
+            <button onclick="cerrarCaja()" style="background:#f59e0b; color:#fff; border:none; padding:14px; border-radius:10px; font-weight:700; cursor:pointer; font-size:0.9rem;">🔒 Cerrar Caja</button>
+          </div>
+          <div id="cajaResumen" style="background:#1e1e2e; border-radius:12px; padding:16px;"></div>
+          <div id="cajaEventos" style="margin-top:12px;"></div>
+        </div>
+      </div>
+
+      <!-- VISTA: TURNOS -->
+      <div id="viewTurnos" style="display: none; flex-direction: column; gap: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+          <h2 style="font-size: 1.4rem; color: #fff;">🕐 Turnos</h2>
+          <div style="display:flex; gap:8px;">
+            <input id="turnoFechaDesde" type="date" style="padding:8px; border-radius:8px; border:1px solid #444; background:#2a2a3e; color:#fff;">
+            <input id="turnoFechaHasta" type="date" style="padding:8px; border-radius:8px; border:1px solid #444; background:#2a2a3e; color:#fff;">
+            <button onclick="cargarTurnos()" style="background:#3b82f6; color:#fff; border:none; padding:8px 14px; border-radius:8px; font-weight:600; cursor:pointer;">🔍</button>
+          </div>
+        </div>
+        <div id="turnosGrid"></div>
+      </div>
+
       <!-- MODAL: NUEVO/EDITAR INSUMO -->
       <div id="modalInsumo" class="modal-overlay">
         <div class="modal-content" style="max-width:450px;">
@@ -614,6 +649,85 @@
             </div>
             <button onclick="confirmarAjuste()" style="background:#22c55e; color:#fff; border:none; padding:12px; border-radius:8px; font-weight:600; cursor:pointer; font-size:1rem;">✓ Aplicar Ajuste</button>
           </div>
+        </div>
+      </div>
+
+      <!-- MODAL: ABRIR CAJA -->
+      <div id="modalAbrirCaja" class="modal-overlay">
+        <div class="modal-content" style="max-width:380px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <h3 style="color:#22c55e;">Abrir Caja</h3>
+            <button onclick="document.getElementById('modalAbrirCaja').classList.remove('active')" style="background:none; border:none; color:#888; font-size:1.3rem; cursor:pointer;">✕</button>
+          </div>
+          <p style="color:#aaa; font-size:0.85rem; margin-bottom:12px;">Monto inicial en efectivo:</p>
+          <input id="cajaMontoApertura" type="number" step="0.01" value="0" style="width:100%; padding:12px; border-radius:8px; border:1px solid #444; background:#2a2a3e; color:#fff; font-size:1.2rem; font-weight:700; box-sizing:border-box;">
+          <button onclick="abrirCaja()" style="width:100%; background:#22c55e; color:#fff; border:none; padding:12px; border-radius:8px; font-weight:700; cursor:pointer; font-size:1rem; margin-top:14px;">Abrir Caja</button>
+        </div>
+      </div>
+
+      <!-- MODAL: EGRESO -->
+      <div id="modalEgreso" class="modal-overlay">
+        <div class="modal-content" style="max-width:380px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <h3 style="color:#ef4444;">💸 Egreso de Efectivo</h3>
+            <button onclick="document.getElementById('modalEgreso').classList.remove('active')" style="background:none; border:none; color:#888; font-size:1.3rem; cursor:pointer;">✕</button>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:12px;">
+            <input id="egresoMonto" type="number" step="0.01" placeholder="Monto" style="width:100%; padding:10px; border-radius:8px; border:1px solid #444; background:#2a2a3e; color:#fff; box-sizing:border-box;">
+            <input id="egresoMotivo" type="text" placeholder="Motivo (ej: compra de hielo)" style="width:100%; padding:10px; border-radius:8px; border:1px solid #444; background:#2a2a3e; color:#fff; box-sizing:border-box;">
+            <select id="egresoCategoria" style="width:100%; padding:10px; border-radius:8px; border:1px solid #444; background:#2a2a3e; color:#fff; box-sizing:border-box;">
+              <option value="general">General</option>
+              <option value="insumos">Insumos</option>
+              <option value="limpieza">Limpieza</option>
+              <option value="mantenimiento">Mantenimiento</option>
+              <option value="delivery">Delivery</option>
+              <option value="otro">Otro</option>
+            </select>
+            <button onclick="confirmarEgreso()" style="background:#ef4444; color:#fff; border:none; padding:12px; border-radius:8px; font-weight:700; cursor:pointer;">Registrar Egreso</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODAL: INGRESO EXTRA -->
+      <div id="modalIngresoExtra" class="modal-overlay">
+        <div class="modal-content" style="max-width:380px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <h3 style="color:#22c55e;">📥 Ingreso Extra</h3>
+            <button onclick="document.getElementById('modalIngresoExtra').classList.remove('active')" style="background:none; border:none; color:#888; font-size:1.3rem; cursor:pointer;">✕</button>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:12px;">
+            <input id="ingresoMonto" type="number" step="0.01" placeholder="Monto" style="width:100%; padding:10px; border-radius:8px; border:1px solid #444; background:#2a2a3e; color:#fff; box-sizing:border-box;">
+            <input id="ingresoMotivo" type="text" placeholder="Motivo (ej: cambio dado)" style="width:100%; padding:10px; border-radius:8px; border:1px solid #444; background:#2a2a3e; color:#fff; box-sizing:border-box;">
+            <button onclick="confirmarIngresoExtra()" style="background:#22c55e; color:#fff; border:none; padding:12px; border-radius:8px; font-weight:700; cursor:pointer;">Registrar Ingreso</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODAL: ARQUEO -->
+      <div id="modalArqueo" class="modal-overlay">
+        <div class="modal-content" style="max-width:380px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <h3 style="color:#3b82f6;">🔍 Arqueo de Caja</h3>
+            <button onclick="document.getElementById('modalArqueo').classList.remove('active')" style="background:none; border:none; color:#888; font-size:1.3rem; cursor:pointer;">✕</button>
+          </div>
+          <p style="color:#aaa; font-size:0.85rem; margin-bottom:8px;">Contá el efectivo y cargá el monto:</p>
+          <input id="arqueoMonto" type="number" step="0.01" placeholder="Monto contado" style="width:100%; padding:10px; border-radius:8px; border:1px solid #444; background:#2a2a3e; color:#fff; box-sizing:border-box;">
+          <input id="arqueoObs" type="text" placeholder="Observaciones (opcional)" style="width:100%; padding:10px; border-radius:8px; border:1px solid #444; background:#2a2a3e; color:#fff; box-sizing:border-box; margin-top:10px;">
+          <button onclick="confirmarArqueo()" style="width:100%; background:#3b82f6; color:#fff; border:none; padding:12px; border-radius:8px; font-weight:700; cursor:pointer; margin-top:14px;">Confirmar Arqueo</button>
+        </div>
+      </div>
+
+      <!-- MODAL: CERRAR CAJA -->
+      <div id="modalCerrarCaja" class="modal-overlay">
+        <div class="modal-content" style="max-width:380px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <h3 style="color:#f59e0b;">🔒 Cerrar Caja</h3>
+            <button onclick="document.getElementById('modalCerrarCaja').classList.remove('active')" style="background:none; border:none; color:#888; font-size:1.3rem; cursor:pointer;">✕</button>
+          </div>
+          <p style="color:#aaa; font-size:0.85rem; margin-bottom:8px;">Contá el efectivo final y confirmá el cierre:</p>
+          <input id="cierreMonto" type="number" step="0.01" placeholder="Monto final en caja" style="width:100%; padding:10px; border-radius:8px; border:1px solid #444; background:#2a2a3e; color:#fff; box-sizing:border-box;">
+          <input id="cierreObs" type="text" placeholder="Observaciones (opcional)" style="width:100%; padding:10px; border-radius:8px; border:1px solid #444; background:#2a2a3e; color:#fff; box-sizing:border-box; margin-top:10px;">
+          <button onclick="confirmarCierre()" style="width:100%; background:#f59e0b; color:#fff; border:none; padding:12px; border-radius:8px; font-weight:700; cursor:pointer; margin-top:14px;">Cerrar Caja</button>
         </div>
       </div>
 
@@ -827,12 +941,12 @@
     let currentUser = JSON.parse(localStorage.getItem('admin_user') || 'null');
 
     const ROLES_TABS = {
-      admin:  ['dashboard','menu','qrs','resenas','promos','insumos','historial','reportes','ticket','usuarios'],
-      cajero: ['dashboard','historial','reportes','resenas'],
+      admin:  ['dashboard','menu','qrs','resenas','promos','insumos','historial','reportes','caja','turnos','ticket','usuarios'],
+      cajero: ['dashboard','historial','reportes','resenas','caja','turnos'],
       mozo:   ['dashboard','resenas'],
       cocina: ['dashboard']
     };
-    const ALL_TABS = ['dashboard','menu','qrs','resenas','promos','insumos','historial','reportes','ticket','usuarios'];
+    const ALL_TABS = ['dashboard','menu','qrs','resenas','promos','insumos','historial','reportes','caja','turnos','ticket','usuarios'];
 
     function checkAuth() {
       if (authToken && currentUser) {
@@ -1047,7 +1161,7 @@
 
     function switchTab(tab) {
       currentTab = tab;
-      ['Dashboard', 'Menu', 'Qrs', 'Resenas', 'Promos', 'Insumos', 'Historial', 'Reportes', 'Ticket', 'Usuarios'].forEach(t => {
+      ['Dashboard', 'Menu', 'Qrs', 'Resenas', 'Promos', 'Insumos', 'Historial', 'Reportes', 'Caja', 'Turnos', 'Ticket', 'Usuarios'].forEach(t => {
         const btn = document.getElementById(`nav${t}`);
         if (btn) btn.classList.toggle('active', t.toLowerCase() === tab);
       });
@@ -1060,6 +1174,8 @@
       document.getElementById('viewInsumos').style.display = tab === 'insumos' ? 'flex' : 'none';
       document.getElementById('viewHistorial').style.display = tab === 'historial' ? 'flex' : 'none';
       document.getElementById('viewReportes').style.display = tab === 'reportes' ? 'flex' : 'none';
+      document.getElementById('viewCaja').style.display = tab === 'caja' ? 'flex' : 'none';
+      document.getElementById('viewTurnos').style.display = tab === 'turnos' ? 'flex' : 'none';
       document.getElementById('viewTicketConfig').style.display = tab === 'ticket' ? 'flex' : 'none';
       document.getElementById('viewUsuarios').style.display = tab === 'usuarios' ? 'flex' : 'none';
 
@@ -1071,6 +1187,8 @@
       else if (tab === 'resenas') renderResenasView();
       else if (tab === 'historial') renderHistorialView();
       else if (tab === 'reportes') cargarReportes();
+      else if (tab === 'caja') cargarCaja();
+      else if (tab === 'turnos') cargarTurnos();
       else if (tab === 'ticket') cargarTicketConfig();
       else if (tab === 'usuarios') renderUsuariosView();
     }
@@ -3150,11 +3268,196 @@
       renderUsuariosView();
     }
 
+    // --- CAJA DIARIA ---
+    async function cargarCaja() {
+      try {
+        const res = await fetch('/api/caja/turno-actual', { headers: adminHeaders() });
+        if (handleAuthError(res)) return;
+        const data = await res.json();
+        const estadoEl = document.getElementById('cajaEstado');
+        const accionesEl = document.getElementById('cajaAcciones');
+
+        if (!data.abierto) {
+          estadoEl.innerHTML = `
+            <div style="background:#1e1e2e; border-radius:12px; padding:30px; text-align:center;">
+              <div style="font-size:3rem; margin-bottom:12px;">🔒</div>
+              <p style="color:#888; font-size:1.1rem; margin-bottom:16px;">La caja está cerrada</p>
+              <button onclick="document.getElementById('modalAbrirCaja').classList.add('active')" style="background:#22c55e; color:#fff; border:none; padding:14px 28px; border-radius:10px; font-weight:700; cursor:pointer; font-size:1rem;">💰 Abrir Caja</button>
+            </div>`;
+          accionesEl.style.display = 'none';
+          return;
+        }
+
+        accionesEl.style.display = 'block';
+        const apertura = data.montoApertura;
+        const egresos = data.totalEgresos;
+        const ingExtra = data.totalIngresosExtra;
+        const balance = apertura - egresos + ingExtra;
+        const desde = new Date(data.abiertoEn);
+        const minTranscurridos = Math.floor((Date.now() - desde) / 60000);
+        const horas = Math.floor(minTranscurridos / 60);
+        const mins = minTranscurridos % 60;
+
+        estadoEl.innerHTML = `
+          <div style="background:#1e1e2e; border-radius:12px; padding:16px; border-left:4px solid #22c55e;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <div>
+                <strong style="color:#22c55e; font-size:1rem;">Caja Abierta</strong>
+                <span style="color:#888; font-size:0.85rem; margin-left:8px;">por ${data.usuario} — hace ${horas}h ${mins}m</span>
+              </div>
+              <span style="color:#22c55e; font-weight:700; font-size:1.3rem;">$${balance.toFixed(2)}</span>
+            </div>
+          </div>`;
+
+        document.getElementById('cajaResumen').innerHTML = `
+          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap:12px;">
+            <div style="text-align:center;"><div style="color:#888; font-size:0.75rem;">Apertura</div><div style="color:#fff; font-size:1.2rem; font-weight:800;">$${apertura.toFixed(2)}</div></div>
+            <div style="text-align:center;"><div style="color:#888; font-size:0.75rem;">Egresos</div><div style="color:#ef4444; font-size:1.2rem; font-weight:800;">-$${egresos.toFixed(2)}</div></div>
+            <div style="text-align:center;"><div style="color:#888; font-size:0.75rem;">Ingresos Extra</div><div style="color:#22c55e; font-size:1.2rem; font-weight:800;">+$${ingExtra.toFixed(2)}</div></div>
+            <div style="text-align:center;"><div style="color:#888; font-size:0.75rem;">Balance</div><div style="color:#f97316; font-size:1.2rem; font-weight:800;">$${balance.toFixed(2)}</div></div>
+          </div>`;
+
+        const eventos = (data.eventos || []).slice().reverse();
+        if (eventos.length) {
+          const tipoLabel = { egreso: '💸 Egreso', ingreso_extra: '📥 Ingreso', arqueo: '🔍 Arqueo', cierre: '🔒 Cierre' };
+          const tipoColor = { egreso: '#ef4444', ingreso_extra: '#22c55e', arqueo: '#3b82f6', cierre: '#f59e0b' };
+          document.getElementById('cajaEventos').innerHTML = `
+            <div style="background:#1e1e2e; border-radius:12px; padding:16px;">
+              <h3 style="color:#fff; font-size:0.95rem; margin-bottom:10px;">📋 Movimientos</h3>
+              ${eventos.map(e => `
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid #27272a;">
+                  <div>
+                    <span style="color:${tipoColor[e.tipo] || '#888'}; font-weight:600; font-size:0.85rem;">${tipoLabel[e.tipo] || e.tipo}</span>
+                    ${e.motivo ? `<span style="color:#aaa; font-size:0.8rem; margin-left:6px;">${e.motivo}</span>` : ''}
+                    ${e.observaciones ? `<span style="color:#888; font-size:0.75rem; margin-left:6px;">(${e.observaciones})</span>` : ''}
+                  </div>
+                  <div style="text-align:right;">
+                    <span style="color:${e.tipo === 'egreso' ? '#ef4444' : '#22c55e'}; font-weight:700;">${e.tipo === 'egreso' ? '-' : '+'}$${(e.monto || 0).toFixed(2)}</span>
+                    <div style="color:#666; font-size:0.7rem;">${new Date(e.fecha).toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit'})}</div>
+                  </div>
+                </div>
+              `).join('')}
+            </div>`;
+        } else {
+          document.getElementById('cajaEventos').innerHTML = '';
+        }
+      } catch(e) { console.error('Error caja:', e); }
+    }
+
+    async function abrirCaja() {
+      const monto = parseFloat(document.getElementById('cajaMontoApertura').value) || 0;
+      const res = await fetch('/api/caja/abrir', { method: 'POST', headers: adminHeaders(), body: JSON.stringify({ monto }) });
+      if (handleAuthError(res)) return;
+      const data = await res.json();
+      if (data.error) return alert(data.error);
+      document.getElementById('modalAbrirCaja').classList.remove('active');
+      cargarCaja();
+    }
+
+    function modalEgreso() { document.getElementById('modalEgreso').classList.add('active'); }
+    function modalIngresoExtra() { document.getElementById('modalIngresoExtra').classList.add('active'); }
+    function modalArqueo() { document.getElementById('modalArqueo').classList.add('active'); }
+
+    async function confirmarEgreso() {
+      const monto = parseFloat(document.getElementById('egresoMonto').value) || 0;
+      const motivo = document.getElementById('egresoMotivo').value.trim();
+      const categoria = document.getElementById('egresoCategoria').value;
+      if (!monto || !motivo) return alert('Completá monto y motivo');
+      const res = await fetch('/api/caja/egreso', { method: 'POST', headers: adminHeaders(), body: JSON.stringify({ monto, motivo, categoria }) });
+      if (handleAuthError(res)) return;
+      document.getElementById('modalEgreso').classList.remove('active');
+      document.getElementById('egresoMonto').value = '';
+      document.getElementById('egresoMotivo').value = '';
+      cargarCaja();
+    }
+
+    async function confirmarIngresoExtra() {
+      const monto = parseFloat(document.getElementById('ingresoMonto').value) || 0;
+      const motivo = document.getElementById('ingresoMotivo').value.trim();
+      if (!monto || !motivo) return alert('Completá monto y motivo');
+      const res = await fetch('/api/caja/ingreso-extra', { method: 'POST', headers: adminHeaders(), body: JSON.stringify({ monto, motivo }) });
+      if (handleAuthError(res)) return;
+      document.getElementById('modalIngresoExtra').classList.remove('active');
+      document.getElementById('ingresoMonto').value = '';
+      document.getElementById('ingresoMotivo').value = '';
+      cargarCaja();
+    }
+
+    async function confirmarArqueo() {
+      const montoContado = parseFloat(document.getElementById('arqueoMonto').value) || 0;
+      const observaciones = document.getElementById('arqueoObs').value.trim();
+      const res = await fetch('/api/caja/arqueo', { method: 'POST', headers: adminHeaders(), body: JSON.stringify({ montoContado, observaciones }) });
+      if (handleAuthError(res)) return;
+      const data = await res.json();
+      if (data.error) return alert(data.error);
+      const diff = data.diferencia;
+      alert(`Arqueo registrado\nEsperado: $${data.esperado.toFixed(2)}\nContado: $${data.montoContado.toFixed(2)}\nDiferencia: ${diff >= 0 ? '+' : ''}$${diff.toFixed(2)}`);
+      document.getElementById('modalArqueo').classList.remove('active');
+      document.getElementById('arqueoMonto').value = '';
+      document.getElementById('arqueoObs').value = '';
+      cargarCaja();
+    }
+
+    function cerrarCaja() { document.getElementById('modalCerrarCaja').classList.add('active'); }
+
+    async function confirmarCierre() {
+      const montoCierre = parseFloat(document.getElementById('cierreMonto').value) || 0;
+      const observaciones = document.getElementById('cierreObs').value.trim();
+      if (!confirm('¿Cerrar la caja definitivamente?')) return;
+      const res = await fetch('/api/caja/cerrar', { method: 'POST', headers: adminHeaders(), body: JSON.stringify({ montoCierre, observaciones }) });
+      if (handleAuthError(res)) return;
+      const data = await res.json();
+      if (data.error) return alert(data.error);
+      alert(`Caja cerrada\nEsperado: $${data.esperado.toFixed(2)}\nCierre: $${data.montoCierre.toFixed(2)}\nDiferencia: ${data.diferencia >= 0 ? '+' : ''}$${data.diferencia.toFixed(2)}`);
+      document.getElementById('modalCerrarCaja').classList.remove('active');
+      cargarCaja();
+    }
+
+    // --- TURNOS ---
+    async function cargarTurnos() {
+      const desde = document.getElementById('turnoFechaDesde').value || localDateStr(new Date());
+      const hasta = document.getElementById('turnoFechaHasta').value || desde;
+      try {
+        const res = await fetch(`/api/turnos?desde=${desde}&hasta=${hasta}`, { headers: adminHeaders() });
+        if (handleAuthError(res)) return;
+        const lista = await res.json();
+        const grid = document.getElementById('turnosGrid');
+        if (!lista.length) { grid.innerHTML = '<p style="color:#888; text-align:center; padding:40px;">No hay turnos en este período</p>'; return; }
+        grid.innerHTML = lista.map(t => {
+          const apertura = new Date(t.apertura);
+          const cierre = new Date(t.cierre);
+          const durMs = cierre - apertura;
+          const durH = Math.floor(durMs / 3600000);
+          const durM = Math.floor((durMs % 3600000) / 60000);
+          const diffColor = t.diferencia === 0 ? '#22c55e' : (t.diferencia > 0 ? '#3b82f6' : '#ef4444');
+          return `
+            <div style="background:#1e1e2e; border-radius:12px; padding:16px; border-left:4px solid ${diffColor}; margin-bottom:10px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <div>
+                  <strong style="color:#fff;">${t.nombre || t.usuario}</strong>
+                  <span style="color:#888; font-size:0.8rem; margin-left:6px;">${apertura.toLocaleDateString('es-AR')} ${apertura.toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit'})} — ${cierre.toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit'})} (${durH}h ${durM}m)</span>
+                </div>
+                <span style="color:${diffColor}; font-weight:700;">${t.diferencia >= 0 ? '+' : ''}$${t.diferencia.toFixed(2)}</span>
+              </div>
+              <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap:8px; font-size:0.8rem; color:#aaa;">
+                <div>Apertura: <strong style="color:#fff;">$${t.montoApertura.toFixed(2)}</strong></div>
+                <div>Ventas efvo: <strong style="color:#22c55e;">$${(t.ventasEfectivo || 0).toFixed(2)}</strong></div>
+                <div>Propinas: <strong style="color:#eab308;">$${(t.propinasEfectivo || 0).toFixed(2)}</strong></div>
+                <div>Egresos: <strong style="color:#ef4444;">-$${(t.totalEgresos || 0).toFixed(2)}</strong></div>
+                <div>Cierre: <strong style="color:#fff;">$${t.montoCierre.toFixed(2)}</strong></div>
+              </div>
+            </div>`;
+        }).join('');
+      } catch(e) { console.error('Error turnos:', e); }
+    }
+
     setInterval(fetchDashboardData, 3000);
     document.getElementById('filtroDiaHistorial').value = localDateStr(new Date());
     const hoyStr = localDateStr(new Date());
     document.getElementById('reporteDesde').value = hoyStr;
     document.getElementById('reporteHasta').value = hoyStr;
+    document.getElementById('turnoFechaDesde').value = hoyStr;
+    document.getElementById('turnoFechaHasta').value = hoyStr;
     fetchDashboardData();
     cargarMenuDesdeServidor();
   </script>

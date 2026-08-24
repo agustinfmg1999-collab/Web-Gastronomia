@@ -52,6 +52,8 @@ const INSUMOS_FILE = path.join(__dirname, 'insumos.json');
 const RECETAS_FILE = path.join(__dirname, 'recetas.json');
 const ARCA_FILE = path.join(__dirname, 'arca.json');
 const FACTURAS_FILE = path.join(__dirname, 'facturas.json');
+const CAJA_FILE = path.join(__dirname, 'caja.json');
+const TURNOS_FILE = path.join(__dirname, 'turnos.json');
 const BACKUP_DIR = path.join(__dirname, 'backups');
 
 const ADMIN_PASSWORD = 'admin123';
@@ -208,6 +210,18 @@ let facturas = readData(FACTURAS_FILE);
 if (!facturas || !Array.isArray(facturas)) {
   facturas = [];
   saveData(FACTURAS_FILE, facturas);
+}
+
+let cajaEventos = readData(CAJA_FILE);
+if (!cajaEventos || !Array.isArray(cajaEventos)) {
+  cajaEventos = [];
+  saveData(CAJA_FILE, cajaEventos);
+}
+
+let turnos = readData(TURNOS_FILE);
+if (!turnos || !Array.isArray(turnos)) {
+  turnos = [];
+  saveData(TURNOS_FILE, turnos);
 }
 
 // --- CONFIGURACIÓN DE SOCKET.IO ---
@@ -963,6 +977,202 @@ app.get('/api/facturas/:id', authMiddleware, (req, res) => {
   res.json(factura);
 });
 
+// ========== CAJA DIARIA ==========
+// Un turno de caja tiene: apertura, eventos (arqueos, egresos, ingresos), cierre
+
+app.get('/api/caja/turno-actual', authMiddleware, roleMiddleware('admin', 'cajero'), (req, res) => {
+  const abierto = cajaEventos.filter(e => e.tipo === 'apertura' && !e.cerradoEn).pop();
+  if (!abierto) return res.json({ abierto: false });
+  const eventos = cajaEventos.filter(e => e.turnoId === abierto.turnoId);
+  const totalEgresos = eventos.filter(e => e.tipo === 'egreso').reduce((s, e) => s + (e.monto || 0), 0);
+  const totalIngresosExtra = eventos.filter(e => e.tipo === 'ingreso_extra').reduce((s, e) => s + (e.monto || 0), 0);
+  const arqueos = eventos.filter(e => e.tipo === 'arqueo');
+  res.json({
+    abierto: true,
+    turnoId: abierto.turnoId,
+    usuario: abierto.usuario,
+    montoApertura: abierto.monto,
+    abiertoEn: abierto.fecha,
+    totalEgresos,
+    totalIngresosExtra,
+    eventos: eventos.filter(e => e.tipo !== 'apertura'),
+    arqueos
+  });
+});
+
+app.post('/api/caja/abrir', authMiddleware, roleMiddleware('admin', 'cajero'), (req, res) => {
+  const abierto = cajaEventos.find(e => e.tipo === 'apertura' && !e.cerradoEn);
+  if (abierto) return res.status(409).json({ error: 'Ya hay una caja abierta por ' + abierto.usuario });
+
+  const monto = parseFloat(req.body.monto) || 0;
+  const evento = {
+    id: `CAJ-${Date.now().toString(36)}`,
+    tipo: 'apertura',
+    turnoId: `TUR-${Date.now().toString(36)}`,
+    usuario: req.user.usuario,
+    nombre: req.user.nombre,
+    monto,
+    fecha: new Date().toISOString(),
+    cerradoEn: null
+  };
+  cajaEventos.push(evento);
+  saveData(CAJA_FILE, cajaEventos);
+  res.status(201).json(evento);
+});
+
+app.post('/api/caja/arqueo', authMiddleware, roleMiddleware('admin', 'cajero'), (req, res) => {
+  const apertura = cajaEventos.find(e => e.tipo === 'apertura' && !e.cerradoEn);
+  if (!apertura) return res.status(400).json({ error: 'No hay caja abierta' });
+
+  const montoContado = parseFloat(req.body.montoContado) || 0;
+  const observaciones = req.body.observaciones || '';
+  const eventos = cajaEventos.filter(e => e.turnoId === apertura.turnoId && e.tipo !== 'apertura');
+  const totalEgresos = eventos.filter(e => e.tipo === 'egreso').reduce((s, e) => s + (e.monto || 0), 0);
+  const totalIngresosExtra = eventos.filter(e => e.tipo === 'ingreso_extra').reduce((s, e) => s + (e.monto || 0), 0);
+
+  const ventasPagadas = pedidos.filter(p => {
+    if (!p.pagado) return false;
+    const f = localDate(new Date(p.fecha));
+    return f === localDate(new Date()) && p.formaPago !== 'tarjeta';
+  });
+  const totalVentasEfectivo = ventasPagadas.reduce((s, p) => s + (p.total || 0), 0);
+  const totalPropinasEfectivo = ventasPagadas.reduce((s, p) => s + (p.propina || 0), 0);
+
+  const esperado = apertura.monto + totalVentasEfectivo + totalPropinasEfectivo + totalIngresosExtra - totalEgresos;
+  const diferencia = montoContado - esperado;
+
+  const evento = {
+    id: `CAJ-${Date.now().toString(36)}`,
+    tipo: 'arqueo',
+    turnoId: apertura.turnoId,
+    usuario: req.user.usuario,
+    montoContado,
+    esperado,
+    diferencia,
+    observaciones,
+    fecha: new Date().toISOString()
+  };
+  cajaEventos.push(evento);
+  saveData(CAJA_FILE, cajaEventos);
+  res.status(201).json(evento);
+});
+
+app.post('/api/caja/egreso', authMiddleware, roleMiddleware('admin', 'cajero'), (req, res) => {
+  const apertura = cajaEventos.find(e => e.tipo === 'apertura' && !e.cerradoEn);
+  if (!apertura) return res.status(400).json({ error: 'No hay caja abierta' });
+
+  const monto = parseFloat(req.body.monto) || 0;
+  if (monto <= 0) return res.status(400).json({ error: 'Monto inválido' });
+
+  const evento = {
+    id: `CAJ-${Date.now().toString(36)}`,
+    tipo: 'egreso',
+    turnoId: apertura.turnoId,
+    usuario: req.user.usuario,
+    monto,
+    motivo: req.body.motivo || 'Egreso informado',
+    categoria: req.body.categoria || 'general',
+    fecha: new Date().toISOString()
+  };
+  cajaEventos.push(evento);
+  saveData(CAJA_FILE, cajaEventos);
+  res.status(201).json(evento);
+});
+
+app.post('/api/caja/ingreso-extra', authMiddleware, roleMiddleware('admin', 'cajero'), (req, res) => {
+  const apertura = cajaEventos.find(e => e.tipo === 'apertura' && !e.cerradoEn);
+  if (!apertura) return res.status(400).json({ error: 'No hay caja abierta' });
+
+  const monto = parseFloat(req.body.monto) || 0;
+  const evento = {
+    id: `CAJ-${Date.now().toString(36)}`,
+    tipo: 'ingreso_extra',
+    turnoId: apertura.turnoId,
+    usuario: req.user.usuario,
+    monto,
+    motivo: req.body.motivo || 'Ingreso extra',
+    fecha: new Date().toISOString()
+  };
+  cajaEventos.push(evento);
+  saveData(CAJA_FILE, cajaEventos);
+  res.status(201).json(evento);
+});
+
+app.post('/api/caja/cerrar', authMiddleware, roleMiddleware('admin', 'cajero'), (req, res) => {
+  const apertura = cajaEventos.find(e => e.tipo === 'apertura' && !e.cerradoEn);
+  if (!apertura) return res.status(400).json({ error: 'No hay caja abierta' });
+
+  const montoCierre = parseFloat(req.body.montoCierre) || 0;
+  const observaciones = req.body.observaciones || '';
+  const eventos = cajaEventos.filter(e => e.turnoId === apertura.turnoId && e.tipo !== 'apertura');
+  const totalEgresos = eventos.filter(e => e.tipo === 'egreso').reduce((s, e) => s + (e.monto || 0), 0);
+  const totalIngresosExtra = eventos.filter(e => e.tipo === 'ingreso_extra').reduce((s, e) => s + (e.monto || 0), 0);
+
+  const ventasPagadas = pedidos.filter(p => {
+    if (!p.pagado) return false;
+    const f = localDate(new Date(p.fecha));
+    return f === localDate(new Date()) && p.formaPago !== 'tarjeta';
+  });
+  const totalVentasEfectivo = ventasPagadas.reduce((s, p) => s + (p.total || 0), 0);
+  const totalPropinasEfectivo = ventasPagadas.reduce((s, p) => s + (p.propina || 0), 0);
+
+  const esperado = apertura.monto + totalVentasEfectivo + totalPropinasEfectivo + totalIngresosExtra - totalEgresos;
+  const diferencia = montoCierre - esperado;
+
+  const evento = {
+    id: `CAJ-${Date.now().toString(36)}`,
+    tipo: 'cierre',
+    turnoId: apertura.turnoId,
+    usuario: req.user.usuario,
+    montoCierre,
+    esperado,
+    diferencia,
+    observaciones,
+    fecha: new Date().toISOString()
+  };
+
+  apertura.cerradoEn = new Date().toISOString();
+  cajaEventos.push(evento);
+  saveData(CAJA_FILE, cajaEventos);
+
+  // Registrar turno
+  turnos.push({
+    id: apertura.turnoId,
+    usuario: apertura.usuario,
+    nombre: apertura.nombre,
+    apertura: apertura.fecha,
+    cierre: new Date().toISOString(),
+    montoApertura: apertura.monto,
+    montoCierre,
+    totalEgresos,
+    totalIngresosExtra,
+    ventasEfectivo: totalVentasEfectivo,
+    propinasEfectivo: totalPropinasEfectivo,
+    diferencia
+  });
+  saveData(TURNOS_FILE, turnos);
+
+  res.json(evento);
+});
+
+app.get('/api/caja/historial', authMiddleware, roleMiddleware('admin', 'cajero'), (req, res) => {
+  const fecha = req.query.fecha || localDate(new Date());
+  const eventos = cajaEventos.filter(e => localDate(new Date(e.fecha)) === fecha);
+  res.json(eventos);
+});
+
+// ========== TURNOS ==========
+
+app.get('/api/turnos', authMiddleware, roleMiddleware('admin', 'cajero'), (req, res) => {
+  const desde = req.query.desde || localDate(new Date());
+  const hasta = req.query.hasta || desde;
+  const filtrados = turnos.filter(t => {
+    const f = localDate(new Date(t.apertura));
+    return f >= desde && f <= hasta;
+  }).reverse();
+  res.json(filtrados);
+});
+
 // BACKUP AUTOMÁTICO
 const MAX_BACKUPS = 72; // ~3 días de backups por hora
 function crearBackup() {
@@ -970,7 +1180,7 @@ function crearBackup() {
     const now = new Date();
     const carpeta = path.join(BACKUP_DIR, now.toISOString().slice(0, 13).replace(':', ''));
     if (!fs.existsSync(carpeta)) fs.mkdirSync(carpeta, { recursive: true });
-    [PEDIDOS_FILE, MOZO_FILE, MESAS_FILE, MENU_FILE, TICKET_FILE, RESENAS_FILE, USERS_FILE, INSUMOS_FILE, RECETAS_FILE, ARCA_FILE, FACTURAS_FILE].forEach(f => {
+    [PEDIDOS_FILE, MOZO_FILE, MESAS_FILE, MENU_FILE, TICKET_FILE, RESENAS_FILE, USERS_FILE, INSUMOS_FILE, RECETAS_FILE, ARCA_FILE, FACTURAS_FILE, CAJA_FILE, TURNOS_FILE].forEach(f => {
       if (fs.existsSync(f)) {
         fs.copyFileSync(f, path.join(carpeta, path.basename(f)));
       }

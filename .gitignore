@@ -12,6 +12,8 @@ insumos.json
 recetas.json
 arca.json
 facturas.json
+caja.json
+turnos.json
 config.json
 cloudflared.exe
 .env
