@@ -35,9 +35,8 @@
           🔔 Mozo
         </button>
       </div>
+      <div id="tiempoEstimado" style="display:none; background:#f97316; color:#fff; padding:6px 14px; border-radius:20px; font-size:0.85rem; font-weight:600; margin-top:8px; text-align:center;">⏱ Estimado: ~15 min</div>
     </header>
-
-    <!-- SECCIÓN MENÚ DEL DÍA & PROMOS -->
     <section class="promos-section">
       <div class="promos-header">
         <h2>🔥 Menú del Día & Promos</h2>
@@ -234,6 +233,22 @@
     socket.on('pedido_listo', (data) => {
       if (data.mesa && data.mesa.toLowerCase() === currentMesa.toLowerCase()) {
         showToast('✅ ¡Tu pedido está listo!');
+        if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+        try {
+          const audio = new Audio('/public/sounds/notification.wav');
+          audio.volume = 0.8;
+          audio.play().catch(() => {});
+        } catch(e) {}
+      }
+    });
+
+    socket.on('pedido_actualizado', (pedido) => {
+      if (pedido && pedido.mesa && pedido.mesa.toLowerCase() === currentMesa.toLowerCase()) {
+        const el = document.getElementById('tiempoEstimado');
+        if (el && pedido.tiempoEstimado) {
+          el.textContent = `⏱ Estimado: ~${pedido.tiempoEstimado} min`;
+          el.style.display = 'block';
+        }
       }
     });
 
@@ -257,6 +272,8 @@
 
     socket.on('mesa_liberada', (data) => {
       if (data.mesa && data.mesa.toLowerCase() === currentMesa.toLowerCase()) {
+        const el = document.getElementById('tiempoEstimado');
+        if (el) el.style.display = 'none';
         if (typeof clearCart === 'function') clearCart();
         selectedStars = 5;
         document.getElementById('reviewText').value = '';
@@ -337,7 +354,11 @@
       }
     }
 
-    window.addEventListener('DOMContentLoaded', cargarMenuCliente);
+    window.addEventListener('DOMContentLoaded', () => {
+      cargarMenuCliente();
+      socket.emit('mesa_viewing', { mesa: currentMesa, active: true });
+      setInterval(() => { socket.emit('mesa_viewing', { mesa: currentMesa, active: true }); }, 30000);
+    });
 
     function toggleCartModal(show) {
       const modal = document.getElementById('cartModal');

@@ -114,8 +114,23 @@ if (!resenas || !Array.isArray(resenas)) {
 }
 
 // --- CONFIGURACIÓN DE SOCKET.IO ---
+const mesasActivas = {};
+const socketMesaMap = {};
+
 io.on('connection', (socket) => {
   console.log('⚡ Un cliente o la cocina se ha conectado');
+
+  socket.on('mesa_viewing', (data) => {
+    if (data && data.mesa) {
+      if (data.active) {
+        mesasActivas[data.mesa] = { active: true, since: Date.now() };
+      } else {
+        delete mesasActivas[data.mesa];
+      }
+      socketMesaMap[socket.id] = data.mesa;
+      io.emit('mesas_viewer_update', mesasActivas);
+    }
+  });
 
   socket.on('toggle_dish_status', (data) => {
     io.emit('dish_status_updated', data);
@@ -131,6 +146,12 @@ io.on('connection', (socket) => {
 
   socket.on('disconnect', () => {
     console.log('❌ Un cliente se ha desconectado');
+    const mesa = socketMesaMap[socket.id];
+    if (mesa && mesasActivas[mesa]) {
+      delete mesasActivas[mesa];
+      delete socketMesaMap[socket.id];
+      io.emit('mesas_viewer_update', mesasActivas);
+    }
   });
 });
 
@@ -190,6 +211,7 @@ app.post('/api/config', authMiddleware, (req, res) => {
 
 // Endpoints de Mesas
 app.get('/api/mesas', (req, res) => res.json(mesas));
+app.get('/api/mesas-activas', (req, res) => res.json(mesasActivas));
 
 app.post('/api/mesas', authMiddleware, (req, res) => {
   if (Array.isArray(req.body)) {
@@ -228,6 +250,11 @@ app.patch('/api/pedidos/:id', authMiddleware, (req, res) => {
   if (req.body.estado) pedido.estado = req.body.estado;
   if (req.body.pagado !== undefined) pedido.pagado = req.body.pagado;
   if (req.body.propina !== undefined) pedido.propina = req.body.propina;
+  if (req.body.tiempoEstimado !== undefined) pedido.tiempoEstimado = req.body.tiempoEstimado;
+  if (req.body.addItem) {
+    pedido.items.push(req.body.addItem);
+    pedido.total = pedido.items.reduce((s, i) => s + (i.subtotal || i.precio * i.cantidad), 0);
+  }
   saveData(PEDIDOS_FILE, pedidos);
 
   // Notificar cambio de estado del pedido en tiempo real

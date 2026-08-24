@@ -212,12 +212,14 @@
           </div>
         </div>
 
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 8px;">
           <h2 style="font-size: 1.2rem; color: #fff;">Estado de Mesas</h2>
-          <div style="display: flex; gap: 10px; font-size: 0.8rem; color: #a1a1aa;">
+          <div style="display: flex; gap: 10px; font-size: 0.8rem; color: #a1a1aa; flex-wrap: wrap;">
             <span>🟢 Activas (<strong id="cntActivas">0</strong>)</span> | 
             <span>🟡 Reservadas (<strong id="cntReservadas">0</strong>)</span> | 
-            <span>⚪ Libres (<strong id="cntLibres">0</strong>)</span>
+            <span>⚪ Libres (<strong id="cntLibres">0</strong>)</span> |
+            <span>👁 Mirando (<strong id="cntViewers">0</strong>)</span> |
+            <span>👥 En el local (<strong id="cntPersonas">0</strong>)</span>
           </div>
         </div>
 
@@ -366,6 +368,8 @@
 
     </main>
   </div>
+
+  <datalist id="menuItemsList"></datalist>
 
   <!-- MODAL INDIVIDUAL QR -->
   <div id="modalQrIndividual" class="modal-overlay">
@@ -544,6 +548,8 @@
     let audioEnabled = false;
     let currentTab = 'dashboard';
     let rawPedidosCache = [];
+    let mesasActivasViewer = {};
+    let personasPorMesa = {};
     let mesasCache = [
       { id: "1", nombre: "Mesa 1" },
       { id: "2", nombre: "Mesa 2" },
@@ -584,6 +590,17 @@
           descripcion: p.description || '',
           imagen: p.image || ''
         }));
+
+        const dl = document.getElementById('menuItemsList');
+        if (dl) {
+          dl.innerHTML = '';
+          [...menuCache, ...promosCache].forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p.nombre || p.titulo;
+            opt.dataset.price = p.precio;
+            dl.appendChild(opt);
+          });
+        }
       } catch (err) {
         console.error('Error cargando menú desde servidor:', err);
       }
@@ -678,16 +695,19 @@
 
     async function fetchDashboardData() {
       try {
-        const [resMesas, resPedidos, resMozo] = await Promise.all([
+        const [resMesas, resPedidos, resMozo, resActivas] = await Promise.all([
           fetch('/api/mesas'),
           fetch('/api/pedidos'),
-          fetch('/api/mozo')
+          fetch('/api/mozo'),
+          fetch('/api/mesas-activas')
         ]);
         if (handleAuthError(resPedidos)) return;
         const serverMesas = await resMesas.json();
         if (serverMesas && serverMesas.length) mesasCache = serverMesas;
         rawPedidosCache = await resPedidos.json();
         const llamadas = await resMozo.json();
+        const activas = await resActivas.json();
+        if (activas) mesasActivasViewer = activas;
 
         detectNewEvents(rawPedidosCache, llamadas);
         if (currentTab === 'dashboard') {
@@ -743,13 +763,18 @@
         return;
       }
 
-      let countActivas = 0, countReservadas = 0, countLibres = 0;
+      let countActivas = 0, countReservadas = 0, countLibres = 0, countViewers = 0, countPersonas = 0;
 
       mesasCache.forEach(m => {
         const estado = getEstadoMesa(m.nombre);
         if (estado === 'activa') countActivas++;
         else if (estado === 'reservada') countReservadas++;
         else countLibres++;
+
+        const isViewing = mesasActivasViewer[m.nombre] && mesasActivasViewer[m.nombre].active;
+        if (isViewing) countViewers++;
+        const personas = personasPorMesa[m.nombre] || 0;
+        countPersonas += personas;
 
         const pedidosMesa = rawPedidosCache.filter(p => 
           (p.mesa || 'Mesa 1').toLowerCase() === m.nombre.toLowerCase() && !p.pagado
@@ -763,6 +788,18 @@
         else if (estado === 'reservada') badgeHtml = `<span class="badge-status badge-reservada" onclick="toggleEstadoManual('${m.nombre}', event)">● Reservada</span>`;
         else badgeHtml = `<span class="badge-status badge-libre" onclick="toggleEstadoManual('${m.nombre}', event)">○ Libre</span>`;
 
+        let viewerHtml = '';
+        if (isViewing) {
+          const since = Math.round((Date.now() - mesasActivasViewer[m.nombre].since) / 1000);
+          const mins = Math.floor(since / 60);
+          viewerHtml = `<span style="color:#3b82f6; font-size:0.75rem;">👁 ${mins > 0 ? mins + 'min' : 'ahora'}</span>`;
+        }
+
+        let personasHtml = '';
+        if (personas > 0) {
+          personasHtml = `<span style="color:#eab308; font-size:0.75rem;">👥 ${personas}</span>`;
+        }
+
         const card = document.createElement('div');
         card.className = `card-mesa-dash state-${estado} ${isSelected ? 'selected' : ''}`;
         card.onclick = () => seleccionarMesa(m.nombre);
@@ -772,8 +809,10 @@
             <div class="mesa-dash-title">${m.nombre}</div>
             ${badgeHtml}
           </div>
-          <div class="mesa-dash-info">
+          <div class="mesa-dash-info" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
             ${pedidosMesa.length > 0 ? `<span>Comandas: <strong>${pedidosMesa.length}</strong></span>` : '<span>Sin consumo activo</span>'}
+            ${viewerHtml}
+            ${personasHtml}
           </div>
           <div class="mesa-dash-total">
             ${totalMesa > 0 ? `$${totalMesa.toFixed(2)}` : ''}
@@ -785,6 +824,8 @@
       document.getElementById('cntActivas').innerText = countActivas;
       document.getElementById('cntReservadas').innerText = countReservadas;
       document.getElementById('cntLibres').innerText = countLibres;
+      document.getElementById('cntViewers').innerText = countViewers;
+      document.getElementById('cntPersonas').innerText = countPersonas;
 
       if (!selectedMesaNombre && mesasCache.length > 0) {
         seleccionarMesa(mesasCache[0].nombre);
@@ -807,12 +848,26 @@
       else if (estado === 'reservada') badgeContenedor.innerHTML = `<span class="badge-status badge-reservada">● Reservada</span>`;
       else badgeContenedor.innerHTML = `<span class="badge-status badge-libre">○ Libre</span>`;
 
+      const personasActuales = personasPorMesa[nombreMesa] || 0;
+
       const pedidosMesa = rawPedidosCache.filter(p => 
         (p.mesa || 'Mesa 1').toLowerCase() === nombreMesa.toLowerCase() && !p.pagado
       );
 
+      let html = `
+        <div style="display:flex; gap:8px; align-items:center; margin-bottom:12px; flex-wrap:wrap;">
+          <button onclick="marcarMesaActiva('${nombreMesa}')" style="background:#22c55e; color:#fff; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-size:0.8rem; font-weight:600;">🟢 Marcar Activa</button>
+          <div style="display:flex; align-items:center; gap:4px; background:#18181b; border:1px solid #27272a; border-radius:6px; padding:4px 8px;">
+            <span style="color:#eab308; font-size:0.8rem;">👥 Personas:</span>
+            <button onclick="cambiarPersonas('${nombreMesa}', -1)" style="background:#333; color:#fff; border:none; width:24px; height:24px; border-radius:4px; cursor:pointer; font-size:0.9rem;">-</button>
+            <span id="personasCount-${nombreMesa}" style="color:#fff; font-weight:700; min-width:20px; text-align:center;">${personasActuales}</span>
+            <button onclick="cambiarPersonas('${nombreMesa}', 1)" style="background:#333; color:#fff; border:none; width:24px; height:24px; border-radius:4px; cursor:pointer; font-size:0.9rem;">+</button>
+          </div>
+        </div>
+      `;
+
       if (!pedidosMesa.length) {
-        contenedor.innerHTML = `
+        contenedor.innerHTML = html + `
           <p style="color:#71717a; margin-top:10px;">No hay comandas activas para esta mesa.</p>
           ${estado === 'reservada' ? '<p style="color:#eab308; font-size:0.85rem; margin-top:6px;">Mesa marcada como reservada.</p>' : ''}
         `;
@@ -821,7 +876,7 @@
 
       const totalAcumulado = pedidosMesa.reduce((acc, p) => acc + (p.total || 0), 0);
 
-      contenedor.innerHTML = `
+      html += `
         <div style="margin-bottom: 14px;">
           ${pedidosMesa.map(p => `
             <div class="card-order ${p.estado}">
@@ -829,9 +884,28 @@
                 <span>Comanda: <strong>${p.id}</strong></span>
                 <span>$${p.total.toFixed(2)}</span>
               </div>
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <span style="font-size:0.8rem; color:#a1a1aa;">
+                  ⏱ Tiempo: 
+                  <button onclick="cambiarTiempo('${p.id}', -5)" style="background:#333; color:#fff; border:none; width:20px; height:20px; border-radius:4px; cursor:pointer; font-size:0.7rem;">-</button>
+                  <strong style="color:#f97316; margin:0 4px;" id="tiempo-${p.id}">${p.tiempoEstimado || 15}</strong> min
+                  <button onclick="cambiarTiempo('${p.id}', 5)" style="background:#333; color:#fff; border:none; width:20px; height:20px; border-radius:4px; cursor:pointer; font-size:0.7rem;">+</button>
+                </span>
+                <span style="font-size:0.8rem; color:${p.estado === 'entregado' ? '#22c55e' : p.estado === 'en_preparacion' ? '#3b82f6' : '#f59e0b'};">${p.estado === 'entregado' ? '✅ Entregado' : p.estado === 'en_preparacion' ? '👨‍🍳 En preparación' : '⏳ Pendiente'}</span>
+              </div>
               <ul style="list-style:none; margin-bottom:8px;">
-                ${p.items.map(i => `<li style="font-size:0.9rem;"><strong>${i.cantidad}x</strong> ${i.nombre}</li>`).join('')}
+                ${p.items.map(i => `<li style="font-size:0.9rem;"><strong>${i.cantidad}x</strong> ${i.nombre} <span style="color:#888;">$${(i.subtotal || i.precio * i.cantidad).toFixed(2)}</span></li>`).join('')}
               </ul>
+              <button onclick="mostrarFormAgregarItem('${p.id}')" style="background:#7c3aed; color:#fff; border:none; padding:5px 10px; border-radius:6px; cursor:pointer; font-size:0.8rem; margin-bottom:8px;">+ Agregar Ítem</button>
+              <div id="formAddItem-${p.id}" style="display:none; background:#18181b; border:1px solid #27272a; border-radius:8px; padding:10px; margin-bottom:8px;">
+                <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                  <input type="text" id="itemName-${p.id}" placeholder="Nombre" list="menuItemsList" oninput="autollenarPrecio('${p.id}')" style="flex:1; min-width:100px; background:#2a2a3e; border:1px solid #444; color:#fff; padding:6px; border-radius:4px; font-size:0.85rem;">
+                  <input type="number" id="itemQty-${p.id}" value="1" min="1" style="width:50px; background:#2a2a3e; border:1px solid #444; color:#fff; padding:6px; border-radius:4px; font-size:0.85rem;">
+                  <input type="number" id="itemPrice-${p.id}" placeholder="$Precio" step="0.5" style="width:80px; background:#2a2a3e; border:1px solid #444; color:#fff; padding:6px; border-radius:4px; font-size:0.85rem;">
+                  <button onclick="confirmarAgregarItem('${p.id}')" style="background:#22c55e; color:#fff; border:none; padding:6px 10px; border-radius:4px; cursor:pointer; font-size:0.85rem;">✓</button>
+                  <button onclick="ocultarFormAgregarItem('${p.id}')" style="background:#ef4444; color:#fff; border:none; padding:6px 10px; border-radius:4px; cursor:pointer; font-size:0.85rem;">✕</button>
+                </div>
+              </div>
               <div style="display:flex; gap:8px;">
                 ${p.estado === 'pendiente' ? `<button onclick="updateStatus('${p.id}', 'en_preparacion')" class="btn-action" style="background:#2563eb;">👨‍🍳 En Preparación</button>` : ''}
                 ${p.estado !== 'entregado' ? `<button onclick="updateStatus('${p.id}', 'entregado')" class="btn-action" style="background:#16a34a;">✅ Entregado</button>` : '<span style="color:#22c55e; font-size:0.85rem; font-weight:700;">✅ Pedido Entregado</span>'}
@@ -850,6 +924,73 @@
           <button onclick="cobrarYLiberarMesa('${nombreMesa}')" style="flex:1; background:#22c55e; color:#fff; border:none; padding:12px; border-radius:8px; font-weight:600; cursor:pointer; font-size:0.95rem;">💳 Cobrar y Liberar</button>
         </div>
       `;
+
+      contenedor.innerHTML = html;
+    }
+
+    function marcarMesaActiva(nombreMesa) {
+      estadoMesasManual[nombreMesa] = 'activa';
+      fetchDashboardData();
+    }
+
+    function cambiarPersonas(nombreMesa, delta) {
+      const actual = personasPorMesa[nombreMesa] || 0;
+      const nuevo = Math.max(0, actual + delta);
+      personasPorMesa[nombreMesa] = nuevo;
+      const el = document.getElementById(`personasCount-${nombreMesa}`);
+      if (el) el.textContent = nuevo;
+      const cntEl = document.getElementById('cntPersonas');
+      if (cntEl) {
+        const total = Object.values(personasPorMesa).reduce((s, v) => s + v, 0);
+        cntEl.textContent = total;
+      }
+    }
+
+    async function cambiarTiempo(pedidoId, delta) {
+      const pedido = rawPedidosCache.find(p => p.id === pedidoId);
+      if (!pedido) return;
+      const nuevo = Math.max(5, (pedido.tiempoEstimado || 15) + delta);
+      pedido.tiempoEstimado = nuevo;
+      const el = document.getElementById(`tiempo-${pedidoId}`);
+      if (el) el.textContent = nuevo;
+      await fetch(`/api/pedidos/${pedidoId}`, {
+        method: 'PATCH',
+        headers: adminHeaders(),
+        body: JSON.stringify({ tiempoEstimado: nuevo })
+      });
+    }
+
+    function mostrarFormAgregarItem(pedidoId) {
+      document.getElementById(`formAddItem-${pedidoId}`).style.display = 'block';
+    }
+
+    function ocultarFormAgregarItem(pedidoId) {
+      document.getElementById(`formAddItem-${pedidoId}`).style.display = 'none';
+    }
+
+    async function confirmarAgregarItem(pedidoId) {
+      const name = document.getElementById(`itemName-${pedidoId}`).value.trim();
+      const qty = parseInt(document.getElementById(`itemQty-${pedidoId}`).value) || 1;
+      const price = parseFloat(document.getElementById(`itemPrice-${pedidoId}`).value) || 0;
+      if (!name) return alert('Ingresá un nombre');
+
+      const res = await fetch(`/api/pedidos/${pedidoId}`, {
+        method: 'PATCH',
+        headers: adminHeaders(),
+        body: JSON.stringify({ addItem: { nombre: name, cantidad: qty, precio: price, subtotal: price * qty } })
+      });
+      if (handleAuthError(res)) return;
+      ocultarFormAgregarItem(pedidoId);
+      fetchDashboardData();
+    }
+
+    function autollenarPrecio(pedidoId) {
+      const name = document.getElementById(`itemName-${pedidoId}`).value;
+      const allItems = [...menuCache, ...promosCache];
+      const found = allItems.find(i => (i.nombre || i.titulo) === name);
+      if (found) {
+        document.getElementById(`itemPrice-${pedidoId}`).value = found.precio;
+      }
     }
 
     async function cobrarYLiberarMesa(nombreMesa) {
@@ -870,6 +1011,7 @@
 
       socket.emit('mesa_liberada', { mesa: nombreMesa });
       estadoMesasManual[nombreMesa] = 'libre';
+      personasPorMesa[nombreMesa] = 0;
       fetchDashboardData();
     }
 
@@ -1823,6 +1965,11 @@
         if (currentTab === 'menu') renderMenuView();
         if (currentTab === 'promos') renderPromosView();
       });
+    });
+
+    socket.on('mesas_viewer_update', (data) => {
+      mesasActivasViewer = data || {};
+      if (currentTab === 'dashboard') renderDashboardMesasGrid();
     });
 
     setInterval(fetchDashboardData, 3000);
