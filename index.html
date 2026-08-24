@@ -179,6 +179,9 @@
         <button id="navPromos" class="nav-btn" onclick="switchTab('promos')">
           <span>🏷️</span> Promos
         </button>
+        <button id="navInsumos" class="nav-btn" onclick="switchTab('insumos')">
+          <span>📦</span> Insumos <span id="badgeStock" style="display:none; background:#ef4444; color:#fff; font-size:0.7rem; padding:1px 6px; border-radius:10px; margin-left:4px;">0</span>
+        </button>
         <button id="navHistorial" class="nav-btn" onclick="switchTab('historial')">
           <span>📋</span> Historial
         </button>
@@ -210,6 +213,10 @@
           <div id="waiterCallsContainer" class="alertas-container-flex">
             <p style="color:#71717a; font-size: 0.9rem;">Sin llamadas pendientes.</p>
           </div>
+        </div>
+
+        <div id="dashboardStockAlert" style="display:none; background:#451a1a; border:1px solid #991b1b; border-radius:10px; padding:12px 16px; margin-bottom:14px; cursor:pointer;" onclick="switchTab('insumos')">
+          <span style="color:#f87171; font-weight:600;">⚠️ <span id="dashboardStockCount">0</span> insumo(s) con stock bajo — <span style="text-decoration:underline;">Ver Insumos →</span></span>
         </div>
 
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 8px;">
@@ -362,6 +369,129 @@
             <button onclick="guardarTicketConfig()" style="margin-top: 8px; background: #22c55e; color: #fff; border: none; padding: 12px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 1rem;">
               💾 Guardar Configuración
             </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- VISTA: INSUMOS Y STOCK -->
+      <div id="viewInsumos" style="display: none; flex-direction: column; gap: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+          <h2 style="font-size: 1.4rem; color: #fff;">📦 Insumos y Stock</h2>
+          <div style="display: flex; gap: 8px;">
+            <button onclick="abrirModalInsumo()" style="background:#22c55e; color:#fff; border:none; padding:10px 16px; border-radius:8px; font-weight:600; cursor:pointer;">➕ Nuevo Insumo</button>
+          </div>
+        </div>
+
+        <div id="alertasStockContainer" style="display:none; background:#451a1a; border:1px solid #991b1b; border-radius:12px; padding:16px;">
+          <h3 style="color:#f87171; margin-bottom:10px; font-size:1rem;">⚠️ Stock Bajo</h3>
+          <div id="alertasStockLista"></div>
+        </div>
+
+        <div style="background:#1e1e2e; border-radius:12px; padding:20px; overflow-x:auto;">
+          <h3 style="color:#f97316; font-size:1.1rem; margin-bottom:14px;">Insumos Registrados</h3>
+          <div id="insumosGrid"></div>
+        </div>
+
+        <div style="background:#1e1e2e; border-radius:12px; padding:20px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px;">
+            <h3 style="color:#f97316; font-size:1.1rem;">🍽️ Recetas por Plato</h3>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <select id="selectPlatoReceta" style="background:#2a2a3e; border:1px solid #444; color:#fff; padding:8px 12px; border-radius:8px; font-size:0.9rem;">
+                <option value="">Seleccionar plato...</option>
+              </select>
+              <button onclick="editarRecetaPlato()" style="background:#3b82f6; color:#fff; border:none; padding:8px 14px; border-radius:8px; cursor:pointer; font-weight:600;">📝 Editar Receta</button>
+            </div>
+          </div>
+          <div id="recetasPreview"></div>
+        </div>
+      </div>
+
+      <!-- MODAL: NUEVO/EDITAR INSUMO -->
+      <div id="modalInsumo" class="modal-overlay">
+        <div class="modal-content" style="max-width:450px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <h3 style="color:#f97316;">Nuevo Insumo</h3>
+            <button onclick="document.getElementById('modalInsumo').classList.remove('active')" style="background:none; border:none; color:#888; font-size:1.3rem; cursor:pointer;">✕</button>
+          </div>
+          <input type="hidden" id="insumoEditId">
+          <div style="display:flex; flex-direction:column; gap:12px;">
+            <div>
+              <label style="color:#aaa; font-size:0.85rem;">Nombre</label>
+              <input id="insumoNombre" type="text" placeholder="Ej: Tomate" style="width:100%; padding:10px; border-radius:8px; border:1px solid #444; background:#2a2a3e; color:#fff; box-sizing:border-box;">
+            </div>
+            <div style="display:flex; gap:10px;">
+              <div style="flex:1;">
+                <label style="color:#aaa; font-size:0.85rem;">Unidad</label>
+                <select id="insumoUnidad" style="width:100%; padding:10px; border-radius:8px; border:1px solid #444; background:#2a2a3e; color:#fff; box-sizing:border-box;">
+                  <option value="kg">Kilogramos (kg)</option>
+                  <option value="litros">Litros (L)</option>
+                  <option value="unidades">Unidades (un)</option>
+                  <option value="gramos">Gramos (g)</option>
+                  <option value="ml">Mililitros (ml)</option>
+                </select>
+              </div>
+              <div style="flex:1;">
+                <label style="color:#aaa; font-size:0.85rem;">Stock Mínimo</label>
+                <input id="insumoMinimo" type="number" value="5" min="0" step="1" style="width:100%; padding:10px; border-radius:8px; border:1px solid #444; background:#2a2a3e; color:#fff; box-sizing:border-box;">
+              </div>
+            </div>
+            <div style="display:flex; gap:10px;">
+              <div style="flex:1;">
+                <label style="color:#aaa; font-size:0.85rem;">Cantidad Actual</label>
+                <input id="insumoCantidad" type="number" value="0" min="0" step="0.1" style="width:100%; padding:10px; border-radius:8px; border:1px solid #444; background:#2a2a3e; color:#fff; box-sizing:border-box;">
+              </div>
+              <div style="flex:1;">
+                <label style="color:#aaa; font-size:0.85rem;">Costo por Unidad ($)</label>
+                <input id="insumoCosto" type="number" value="0" min="0" step="0.01" style="width:100%; padding:10px; border-radius:8px; border:1px solid #444; background:#2a2a3e; color:#fff; box-sizing:border-box;">
+              </div>
+            </div>
+            <div>
+              <label style="color:#aaa; font-size:0.85rem;">Proveedor</label>
+              <input id="insumoProveedor" type="text" placeholder="Ej: Distribuidora XYZ" style="width:100%; padding:10px; border-radius:8px; border:1px solid #444; background:#2a2a3e; color:#fff; box-sizing:border-box;">
+            </div>
+            <button onclick="guardarInsumo()" style="background:#22c55e; color:#fff; border:none; padding:12px; border-radius:8px; font-weight:600; cursor:pointer; font-size:1rem;">💾 Guardar</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODAL: EDITAR RECETA -->
+      <div id="modalReceta" class="modal-overlay">
+        <div class="modal-content" style="max-width:500px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <h3 style="color:#f97316;" id="recetaModalTitle">Editar Receta</h3>
+            <button onclick="document.getElementById('modalReceta').classList.remove('active')" style="background:none; border:none; color:#888; font-size:1.3rem; cursor:pointer;">✕</button>
+          </div>
+          <div id="recetaIngredientesList" style="display:flex; flex-direction:column; gap:10px; margin-bottom:14px;"></div>
+          <div style="display:flex; gap:8px; align-items:end;">
+            <select id="recetaAddInsumo" style="flex:2; padding:8px; border-radius:8px; border:1px solid #444; background:#2a2a3e; color:#fff; font-size:0.9rem;">
+              <option value="">Insumo...</option>
+            </select>
+            <input id="recetaAddCantidad" type="number" value="1" min="0.01" step="0.1" placeholder="Cant." style="flex:1; padding:8px; border-radius:8px; border:1px solid #444; background:#2a2a3e; color:#fff; font-size:0.9rem;">
+            <button onclick="agregarIngredienteAReceta()" style="background:#3b82f6; color:#fff; border:none; padding:8px 12px; border-radius:8px; cursor:pointer; font-weight:600;">+</button>
+          </div>
+          <button onclick="guardarReceta()" style="width:100%; margin-top:14px; background:#22c55e; color:#fff; border:none; padding:12px; border-radius:8px; font-weight:600; cursor:pointer; font-size:1rem;">💾 Guardar Receta</button>
+        </div>
+      </div>
+
+      <!-- MODAL: AJUSTAR STOCK -->
+      <div id="modalAjuste" class="modal-overlay">
+        <div class="modal-content" style="max-width:400px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <h3 style="color:#f97316;" id="ajusteModalTitle">Ajustar Stock</h3>
+            <button onclick="document.getElementById('modalAjuste').classList.remove('active')" style="background:none; border:none; color:#888; font-size:1.3rem; cursor:pointer;">✕</button>
+          </div>
+          <input type="hidden" id="ajusteInsumoId">
+          <p id="ajusteInfo" style="color:#aaa; font-size:0.9rem; margin-bottom:12px;"></p>
+          <div style="display:flex; flex-direction:column; gap:12px;">
+            <div>
+              <label style="color:#aaa; font-size:0.85rem;">Cantidad (+ para agregar, - para descontar)</label>
+              <input id="ajusteCantidad" type="number" step="0.1" style="width:100%; padding:10px; border-radius:8px; border:1px solid #444; background:#2a2a3e; color:#fff; box-sizing:border-box;">
+            </div>
+            <div>
+              <label style="color:#aaa; font-size:0.85rem;">Motivo</label>
+              <input id="ajusteMotivo" type="text" placeholder="Ej: Compra, Merma, Devolución..." style="width:100%; padding:10px; border-radius:8px; border:1px solid #444; background:#2a2a3e; color:#fff; box-sizing:border-box;">
+            </div>
+            <button onclick="confirmarAjuste()" style="background:#22c55e; color:#fff; border:none; padding:12px; border-radius:8px; font-weight:600; cursor:pointer; font-size:1rem;">✓ Aplicar Ajuste</button>
           </div>
         </div>
       </div>
@@ -671,7 +801,7 @@
 
     function switchTab(tab) {
       currentTab = tab;
-      ['Dashboard', 'Menu', 'Qrs', 'Resenas', 'Promos', 'Historial', 'Ticket'].forEach(t => {
+      ['Dashboard', 'Menu', 'Qrs', 'Resenas', 'Promos', 'Insumos', 'Historial', 'Ticket'].forEach(t => {
         const btn = document.getElementById(`nav${t}`);
         if (btn) btn.classList.toggle('active', t.toLowerCase() === tab);
       });
@@ -681,6 +811,7 @@
       document.getElementById('viewQrs').style.display = tab === 'qrs' ? 'flex' : 'none';
       document.getElementById('viewResenas').style.display = tab === 'resenas' ? 'flex' : 'none';
       document.getElementById('viewPromos').style.display = tab === 'promos' ? 'flex' : 'none';
+      document.getElementById('viewInsumos').style.display = tab === 'insumos' ? 'flex' : 'none';
       document.getElementById('viewHistorial').style.display = tab === 'historial' ? 'flex' : 'none';
       document.getElementById('viewTicketConfig').style.display = tab === 'ticket' ? 'flex' : 'none';
 
@@ -688,6 +819,7 @@
       else if (tab === 'dashboard') fetchDashboardData();
       else if (tab === 'menu') renderMenuView();
       else if (tab === 'promos') renderPromosView();
+      else if (tab === 'insumos') renderInsumosView();
       else if (tab === 'resenas') renderResenasView();
       else if (tab === 'historial') renderHistorialView();
       else if (tab === 'ticket') cargarTicketConfig();
@@ -695,11 +827,12 @@
 
     async function fetchDashboardData() {
       try {
-        const [resMesas, resPedidos, resMozo, resActivas] = await Promise.all([
+        const [resMesas, resPedidos, resMozo, resActivas, resAlertas] = await Promise.all([
           fetch('/api/mesas'),
           fetch('/api/pedidos'),
           fetch('/api/mozo'),
-          fetch('/api/mesas-activas')
+          fetch('/api/mesas-activas'),
+          fetch('/api/stock-alertas', { headers: adminHeaders() }).catch(() => ({ ok: false }))
         ]);
         if (handleAuthError(resPedidos)) return;
         const serverMesas = await resMesas.json();
@@ -708,6 +841,24 @@
         const llamadas = await resMozo.json();
         const activas = await resActivas.json();
         if (activas) mesasActivasViewer = activas;
+
+        if (resAlertas.ok) {
+          const alertas = await resAlertas.json();
+          const alertDiv = document.getElementById('dashboardStockAlert');
+          if (alertas.length > 0) {
+            alertDiv.style.display = 'block';
+            document.getElementById('dashboardStockCount').textContent = alertas.length;
+          } else {
+            alertDiv.style.display = 'none';
+          }
+          const badge = document.getElementById('badgeStock');
+          if (alertas.length > 0) {
+            badge.style.display = 'inline';
+            badge.textContent = alertas.length;
+          } else {
+            badge.style.display = 'none';
+          }
+        }
 
         detectNewEvents(rawPedidosCache, llamadas);
         if (currentTab === 'dashboard') {
@@ -1971,6 +2122,279 @@
       mesasActivasViewer = data || {};
       if (currentTab === 'dashboard') renderDashboardMesasGrid();
     });
+
+    socket.on('stock_actualizado', () => {
+      if (currentTab === 'insumos') renderInsumosView();
+      actualizarBadgeStock();
+    });
+
+    let insumosCache = [];
+    let recetasCache = [];
+    let recetaEditando = null;
+    let recetaIngredientes = [];
+
+    async function renderInsumosView() {
+      const [resInsumos, resRecetas] = await Promise.all([
+        fetch('/api/insumos', { headers: adminHeaders() }),
+        fetch('/api/recetas', { headers: adminHeaders() })
+      ]);
+      insumosCache = await resInsumos.json();
+      recetasCache = await resRecetas.json();
+
+      renderInsumosTabla();
+      renderAlertasStock();
+      poblarSelectPlatosReceta();
+      renderRecetasPreview();
+      actualizarBadgeStock();
+    }
+
+    function renderInsumosTabla() {
+      const grid = document.getElementById('insumosGrid');
+      if (!insumosCache.length) {
+        grid.innerHTML = '<p style="color:#71717a;">No hay insumos registrados. Agregá el primero con "Nuevo Insumo".</p>';
+        return;
+      }
+      grid.innerHTML = `
+        <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
+          <thead>
+            <tr style="border-bottom:1px solid #333; color:#a1a1aa;">
+              <th style="text-align:left; padding:8px;">Insumo</th>
+              <th style="text-align:center; padding:8px;">Stock</th>
+              <th style="text-align:center; padding:8px;">Mínimo</th>
+              <th style="text-align:right; padding:8px;">Costo/Un</th>
+              <th style="text-align:left; padding:8px;">Proveedor</th>
+              <th style="text-align:center; padding:8px;">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${insumosCache.map(i => {
+              const bajo = i.cantidad <= i.stockMinimo;
+              const colorStock = bajo ? '#ef4444' : i.cantidad <= i.stockMinimo * 1.5 ? '#eab308' : '#22c55e';
+              return `
+              <tr style="border-bottom:1px solid #27272a; ${bajo ? 'background:#451a1a;' : ''}">
+                <td style="padding:8px; color:#fff; font-weight:600;">${i.nombre} ${bajo ? '⚠️' : ''}</td>
+                <td style="padding:8px; text-align:center; color:${colorStock}; font-weight:700;">${i.cantidad} ${i.unidad}</td>
+                <td style="padding:8px; text-align:center; color:#888;">${i.stockMinimo} ${i.unidad}</td>
+                <td style="padding:8px; text-align:right; color:#888;">$${Number(i.costoPorUnidad).toFixed(2)}</td>
+                <td style="padding:8px; color:#888; font-size:0.85rem;">${i.proveedor || '-'}</td>
+                <td style="padding:8px; text-align:center;">
+                  <button onclick="abrirAjusteStock('${i.id}')" style="background:#3b82f6; color:#fff; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:0.8rem; margin-right:4px;">⚖️</button>
+                  <button onclick="editarInsumo('${i.id}')" style="background:#eab308; color:#000; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:0.8rem; margin-right:4px;">✏️</button>
+                  <button onclick="eliminarInsumo('${i.id}')" style="background:#ef4444; color:#fff; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:0.8rem;">🗑️</button>
+                </td>
+              </tr>
+            `;}).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+
+    function renderAlertasStock() {
+      const alertas = insumosCache.filter(i => i.cantidad <= i.stockMinimo);
+      const container = document.getElementById('alertasStockContainer');
+      const lista = document.getElementById('alertasStockLista');
+      if (!alertas.length) {
+        container.style.display = 'none';
+        return;
+      }
+      container.style.display = 'block';
+      lista.innerHTML = alertas.map(a => {
+        const color = a.cantidad === 0 ? '#ef4444' : '#eab308';
+        return `<div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid #555;">
+          <span style="color:#fff; font-weight:600;">${a.nombre}</span>
+          <span style="color:${color}; font-weight:700;">${a.cantidad} ${a.unidad} (mín: ${a.stockMinimo})</span>
+        </div>`;
+      }).join('');
+    }
+
+    async function actualizarBadgeStock() {
+      try {
+        const res = await fetch('/api/stock-alertas', { headers: adminHeaders() });
+        if (!res.ok) return;
+        const alertas = await res.json();
+        const badge = document.getElementById('badgeStock');
+        if (alertas.length > 0) {
+          badge.style.display = 'inline';
+          badge.textContent = alertas.length;
+        } else {
+          badge.style.display = 'none';
+        }
+      } catch(e) {}
+    }
+
+    function abrirModalInsumo(insumo) {
+      document.getElementById('insumoEditId').value = insumo ? insumo.id : '';
+      document.getElementById('insumoNombre').value = insumo ? insumo.nombre : '';
+      document.getElementById('insumoUnidad').value = insumo ? insumo.unidad : 'kg';
+      document.getElementById('insumoCantidad').value = insumo ? insumo.cantidad : 0;
+      document.getElementById('insumoMinimo').value = insumo ? insumo.stockMinimo : 5;
+      document.getElementById('insumoCosto').value = insumo ? insumo.costoPorUnidad : 0;
+      document.getElementById('insumoProveedor').value = insumo ? insumo.proveedor : '';
+      document.querySelector('#modalInsumo h3').textContent = insumo ? 'Editar Insumo' : 'Nuevo Insumo';
+      document.getElementById('modalInsumo').classList.add('active');
+    }
+
+    function editarInsumo(id) {
+      const insumo = insumosCache.find(i => i.id === id);
+      if (insumo) abrirModalInsumo(insumo);
+    }
+
+    async function guardarInsumo() {
+      const id = document.getElementById('insumoEditId').value;
+      const data = {
+        nombre: document.getElementById('insumoNombre').value.trim(),
+        unidad: document.getElementById('insumoUnidad').value,
+        cantidad: parseFloat(document.getElementById('insumoCantidad').value) || 0,
+        stockMinimo: parseFloat(document.getElementById('insumoMinimo').value) || 5,
+        costoPorUnidad: parseFloat(document.getElementById('insumoCosto').value) || 0,
+        proveedor: document.getElementById('insumoProveedor').value.trim()
+      };
+      if (!data.nombre) return alert('Ingresá un nombre');
+
+      if (id) {
+        await fetch(`/api/insumos/${id}`, { method: 'PUT', headers: { ...adminHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+      } else {
+        await fetch('/api/insumos', { method: 'POST', headers: { ...adminHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+      }
+      document.getElementById('modalInsumo').classList.remove('active');
+      renderInsumosView();
+    }
+
+    async function eliminarInsumo(id) {
+      if (!confirm('¿Eliminar este insumo?')) return;
+      await fetch(`/api/insumos/${id}`, { method: 'DELETE', headers: adminHeaders() });
+      renderInsumosView();
+    }
+
+    function abrirAjusteStock(id) {
+      const insumo = insumosCache.find(i => i.id === id);
+      if (!insumo) return;
+      document.getElementById('ajusteInsumoId').value = id;
+      document.getElementById('ajusteInfo').textContent = `Stock actual: ${insumo.cantidad} ${insumo.unidad}`;
+      document.getElementById('ajusteCantidad').value = '';
+      document.getElementById('ajusteMotivo').value = '';
+      document.getElementById('ajusteModalTitle').textContent = `⚖️ Ajustar: ${insumo.nombre}`;
+      document.getElementById('modalAjuste').classList.add('active');
+    }
+
+    async function confirmarAjuste() {
+      const id = document.getElementById('ajusteInsumoId').value;
+      const cantidad = parseFloat(document.getElementById('ajusteCantidad').value);
+      const motivo = document.getElementById('ajusteMotivo').value.trim() || 'Ajuste';
+      if (isNaN(cantidad)) return alert('Ingresá una cantidad');
+      await fetch(`/api/insumos/${id}/ajuste`, { method: 'POST', headers: { ...adminHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify({ cantidad, motivo }) });
+      document.getElementById('modalAjuste').classList.remove('active');
+      renderInsumosView();
+    }
+
+    function poblarSelectPlatosReceta() {
+      const select = document.getElementById('selectPlatoReceta');
+      select.innerHTML = '<option value="">Seleccionar plato...</option>';
+      menuCache.forEach(p => {
+        const tieneReceta = recetasCache.some(r => r.dishId === String(p.id));
+        const option = document.createElement('option');
+        option.value = p.id;
+        option.textContent = `${p.nombre} ${tieneReceta ? '✅' : ''}`;
+        select.appendChild(option);
+      });
+    }
+
+    function renderRecetasPreview() {
+      const container = document.getElementById('recetasPreview');
+      if (!recetasCache.length) {
+        container.innerHTML = '<p style="color:#71717a;">No hay recetas configuradas. Seleccioná un plato para asignarle ingredientes.</p>';
+        return;
+      }
+      container.innerHTML = '<div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:12px;">' +
+        recetasCache.map(r => {
+          const ingList = r.ingredientes.map(ing => {
+            const insumo = insumosCache.find(i => i.id === ing.insumoId);
+            return `${ing.cantidad} ${insumo ? insumo.unidad : '?'} de ${insumo ? insumo.nombre : '???'}`;
+          }).join(', ');
+          return `<div style="background:#27272a; border-radius:8px; padding:12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+              <span style="color:#f97316; font-weight:700; font-size:0.95rem;">🍽️ ${r.dishNombre}</span>
+              <button onclick="eliminarReceta('${r.dishId}')" style="background:none; border:none; color:#ef4444; cursor:pointer; font-size:0.85rem;">🗑️</button>
+            </div>
+            <p style="color:#aaa; font-size:0.8rem;">${ingList || 'Sin ingredientes'}</p>
+          </div>`;
+        }).join('') + '</div>';
+    }
+
+    function editarRecetaPlato() {
+      const dishId = document.getElementById('selectPlatoReceta').value;
+      if (!dishId) return alert('Seleccioná un plato');
+      const plato = menuCache.find(p => String(p.id) === String(dishId));
+      if (!plato) return;
+
+      recetaEditando = dishId;
+      const existente = recetasCache.find(r => r.dishId === String(dishId));
+      recetaIngredientes = existente ? JSON.parse(JSON.stringify(existente.ingredientes)) : [];
+
+      document.getElementById('recetaModalTitle').textContent = `📝 Receta: ${plato.nombre}`;
+      poblarSelectInsumosReceta();
+      renderRecetaIngredientes();
+      document.getElementById('modalReceta').classList.add('active');
+    }
+
+    function poblarSelectInsumosReceta() {
+      const select = document.getElementById('recetaAddInsumo');
+      select.innerHTML = '<option value="">Insumo...</option>';
+      insumosCache.forEach(i => {
+        const opt = document.createElement('option');
+        opt.value = i.id;
+        opt.textContent = `${i.nombre} (${i.unidad})`;
+        select.appendChild(opt);
+      });
+    }
+
+    function renderRecetaIngredientes() {
+      const container = document.getElementById('recetaIngredientesList');
+      if (!recetaIngredientes.length) {
+        container.innerHTML = '<p style="color:#71717a; font-size:0.85rem;">No hay ingredientes. Agregá uno abajo.</p>';
+        return;
+      }
+      container.innerHTML = recetaIngredientes.map((ing, idx) => {
+        const insumo = insumosCache.find(i => i.id === ing.insumoId);
+        return `<div style="display:flex; justify-content:space-between; align-items:center; background:#27272a; border-radius:6px; padding:8px 12px;">
+          <span style="color:#fff; font-size:0.9rem;">${insumo ? insumo.nombre : '???'} — <strong style="color:#f97316;">${ing.cantidad} ${insumo ? insumo.unidad : ''}</strong></span>
+          <button onclick="recetaIngredientes.splice(${idx}, 1); renderRecetaIngredientes();" style="background:none; border:none; color:#ef4444; cursor:pointer;">✕</button>
+        </div>`;
+      }).join('');
+    }
+
+    function agregarIngredienteAReceta() {
+      const insumoId = document.getElementById('recetaAddInsumo').value;
+      const cantidad = parseFloat(document.getElementById('recetaAddCantidad').value);
+      if (!insumoId || isNaN(cantidad) || cantidad <= 0) return alert('Seleccioná un insumo y cantidad');
+      const existente = recetaIngredientes.find(i => i.insumoId === insumoId);
+      if (existente) {
+        existente.cantidad += cantidad;
+      } else {
+        recetaIngredientes.push({ insumoId, cantidad });
+      }
+      document.getElementById('recetaAddInsumo').value = '';
+      document.getElementById('recetaAddCantidad').value = 1;
+      renderRecetaIngredientes();
+    }
+
+    async function guardarReceta() {
+      const plato = menuCache.find(p => String(p.id) === String(recetaEditando));
+      if (!plato) return;
+      await fetch('/api/recetas', {
+        method: 'POST',
+        headers: { ...adminHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dishId: String(recetaEditando), dishNombre: plato.nombre, ingredientes: recetaIngredientes })
+      });
+      document.getElementById('modalReceta').classList.remove('active');
+      renderInsumosView();
+    }
+
+    async function eliminarReceta(dishId) {
+      if (!confirm('¿Eliminar la receta de este plato?')) return;
+      await fetch(`/api/recetas/${dishId}`, { method: 'DELETE', headers: adminHeaders() });
+      renderInsumosView();
+    }
 
     setInterval(fetchDashboardData, 3000);
     document.getElementById('filtroDiaHistorial').value = new Date().toISOString().slice(0, 10);

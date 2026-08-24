@@ -25,6 +25,8 @@ const MENU_FILE = path.join(__dirname, 'menu.json');
 const TICKET_FILE = path.join(__dirname, 'ticket.json');
 const RESENAS_FILE = path.join(__dirname, 'resenas.json');
 const AUTH_FILE = path.join(__dirname, 'auth.json');
+const INSUMOS_FILE = path.join(__dirname, 'insumos.json');
+const RECETAS_FILE = path.join(__dirname, 'recetas.json');
 const BACKUP_DIR = path.join(__dirname, 'backups');
 
 const ADMIN_PASSWORD = 'admin123';
@@ -111,6 +113,18 @@ let resenas = readData(RESENAS_FILE);
 if (!resenas || !Array.isArray(resenas)) {
   resenas = [];
   saveData(RESENAS_FILE, resenas);
+}
+
+let insumos = readData(INSUMOS_FILE);
+if (!insumos || !Array.isArray(insumos)) {
+  insumos = [];
+  saveData(INSUMOS_FILE, insumos);
+}
+
+let recetas = readData(RECETAS_FILE);
+if (!recetas || !Array.isArray(recetas)) {
+  recetas = [];
+  saveData(RECETAS_FILE, recetas);
 }
 
 // --- CONFIGURACIÓN DE SOCKET.IO ---
@@ -224,6 +238,27 @@ app.post('/api/mesas', authMiddleware, (req, res) => {
 // ENDPOINTS PEDIDOS
 app.get('/api/pedidos', (req, res) => res.json(pedidos));
 
+function descontarStockDeItems(items) {
+  let descontado = [];
+  items.forEach(item => {
+    const receta = recetas.find(r => r.dishId === String(item.id));
+    if (!receta) return;
+    receta.ingredientes.forEach(ing => {
+      const insumo = insumos.find(i => i.id === ing.insumoId);
+      if (!insumo) return;
+      const cantidadTotal = ing.cantidad * (item.cantidad || 1);
+      insumo.cantidad -= cantidadTotal;
+      if (insumo.cantidad < 0) insumo.cantidad = 0;
+      descontado.push({ insumo: insumo.nombre, cantidad: cantidadTotal, unidad: insumo.unidad, restante: insumo.cantidad });
+    });
+  });
+  if (descontado.length) {
+    saveData(INSUMOS_FILE, insumos);
+    io.emit('stock_actualizado');
+  }
+  return descontado;
+}
+
 app.post('/api/pedidos', (req, res) => {
   const nuevoPedido = {
     id: `PED-${Math.floor(100000 + Math.random() * 900000)}`,
@@ -237,6 +272,8 @@ app.post('/api/pedidos', (req, res) => {
   pedidos.push(nuevoPedido);
   saveData(PEDIDOS_FILE, pedidos);
   
+  descontarStockDeItems(nuevoPedido.items);
+
   // Notificamos a la cocina de nuevos pedidos en tiempo real
   io.emit('nuevo_pedido', nuevoPedido);
 
@@ -254,6 +291,7 @@ app.patch('/api/pedidos/:id', authMiddleware, (req, res) => {
   if (req.body.addItem) {
     pedido.items.push(req.body.addItem);
     pedido.total = pedido.items.reduce((s, i) => s + (i.subtotal || i.precio * i.cantidad), 0);
+    descontarStockDeItems([req.body.addItem]);
   }
   saveData(PEDIDOS_FILE, pedidos);
 
@@ -362,6 +400,85 @@ app.post('/api/ticket-config', authMiddleware, (req, res) => {
   res.json(ticketConfig);
 });
 
+// ENDPOINTS INSUMOS Y STOCK
+app.get('/api/insumos', authMiddleware, (req, res) => res.json(insumos));
+
+app.post('/api/insumos', authMiddleware, (req, res) => {
+  const insumo = {
+    id: `INS-${Date.now()}`,
+    nombre: req.body.nombre || '',
+    unidad: req.body.unidad || 'unidades',
+    cantidad: req.body.cantidad || 0,
+    stockMinimo: req.body.stockMinimo || 5,
+    costoPorUnidad: req.body.costoPorUnidad || 0,
+    proveedor: req.body.proveedor || ''
+  };
+  insumos.push(insumo);
+  saveData(INSUMOS_FILE, insumos);
+  io.emit('stock_actualizado');
+  res.status(201).json(insumo);
+});
+
+app.put('/api/insumos/:id', authMiddleware, (req, res) => {
+  const insumo = insumos.find(i => i.id === req.params.id);
+  if (!insumo) return res.status(404).json({ error: 'Insumo no encontrado' });
+  if (req.body.nombre !== undefined) insumo.nombre = req.body.nombre;
+  if (req.body.unidad !== undefined) insumo.unidad = req.body.unidad;
+  if (req.body.cantidad !== undefined) insumo.cantidad = req.body.cantidad;
+  if (req.body.stockMinimo !== undefined) insumo.stockMinimo = req.body.stockMinimo;
+  if (req.body.costoPorUnidad !== undefined) insumo.costoPorUnidad = req.body.costoPorUnidad;
+  if (req.body.proveedor !== undefined) insumo.proveedor = req.body.proveedor;
+  saveData(INSUMOS_FILE, insumos);
+  io.emit('stock_actualizado');
+  res.json(insumo);
+});
+
+app.delete('/api/insumos/:id', authMiddleware, (req, res) => {
+  insumos = insumos.filter(i => i.id !== req.params.id);
+  saveData(INSUMOS_FILE, insumos);
+  io.emit('stock_actualizado');
+  res.json({ ok: true });
+});
+
+app.post('/api/insumos/:id/ajuste', authMiddleware, (req, res) => {
+  const insumo = insumos.find(i => i.id === req.params.id);
+  if (!insumo) return res.status(404).json({ error: 'Insumo no encontrado' });
+  const cantidad = parseFloat(req.body.cantidad) || 0;
+  const motivo = req.body.motivo || 'Ajuste manual';
+  insumo.cantidad += cantidad;
+  if (insumo.cantidad < 0) insumo.cantidad = 0;
+  saveData(INSUMOS_FILE, insumos);
+  io.emit('stock_actualizado');
+  res.json(insumo);
+});
+
+app.get('/api/stock-alertas', authMiddleware, (req, res) => {
+  const alertas = insumos.filter(i => i.cantidad <= i.stockMinimo);
+  res.json(alertas);
+});
+
+// RECETAS (ingredientes por plato)
+app.get('/api/recetas', authMiddleware, (req, res) => res.json(recetas));
+
+app.post('/api/recetas', authMiddleware, (req, res) => {
+  const { dishId, dishNombre, ingredientes } = req.body;
+  const existente = recetas.find(r => r.dishId === dishId);
+  if (existente) {
+    existente.dishNombre = dishNombre || existente.dishNombre;
+    existente.ingredientes = ingredientes || existente.ingredientes;
+  } else {
+    recetas.push({ dishId, dishNombre: dishNombre || '', ingredientes: ingredientes || [] });
+  }
+  saveData(RECETAS_FILE, recetas);
+  res.json({ ok: true });
+});
+
+app.delete('/api/recetas/:dishId', authMiddleware, (req, res) => {
+  recetas = recetas.filter(r => r.dishId !== req.params.dishId);
+  saveData(RECETAS_FILE, recetas);
+  res.json({ ok: true });
+});
+
 // ENDPOINTS AUTH
 app.post('/api/auth/login', (req, res) => {
   if (req.body.password === ADMIN_PASSWORD) {
@@ -434,7 +551,7 @@ function crearBackup() {
     const now = new Date();
     const carpeta = path.join(BACKUP_DIR, now.toISOString().slice(0, 13).replace(':', ''));
     if (!fs.existsSync(carpeta)) fs.mkdirSync(carpeta, { recursive: true });
-    [PEDIDOS_FILE, MOZO_FILE, MESAS_FILE, MENU_FILE, TICKET_FILE, RESENAS_FILE].forEach(f => {
+    [PEDIDOS_FILE, MOZO_FILE, MESAS_FILE, MENU_FILE, TICKET_FILE, RESENAS_FILE, INSUMOS_FILE, RECETAS_FILE].forEach(f => {
       if (fs.existsSync(f)) {
         fs.copyFileSync(f, path.join(carpeta, path.basename(f)));
       }
