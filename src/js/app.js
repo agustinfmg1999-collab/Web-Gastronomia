@@ -689,7 +689,7 @@ async function confirmAndSendOrder() {
 
       if (typeof selectedTipPercent !== 'undefined' && selectedTipPercent > 0) {
         const tipAmount = Math.round(orderData.total * selectedTipPercent / 100 * 100) / 100;
-        await fetch(`/api/pedidos/${result.id}`, {
+        await fetch(`/api/pedidos/${result.id}/propina`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ propina: tipAmount })

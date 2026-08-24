@@ -1197,7 +1197,7 @@
       try {
         const [resMesas, resPedidos, resMozo, resActivas, resAlertas] = await Promise.all([
           fetch('/api/mesas'),
-          fetch('/api/pedidos'),
+          fetch('/api/pedidos', { headers: adminHeaders() }),
           fetch('/api/mozo'),
           fetch('/api/mesas-activas'),
           fetch('/api/stock-alertas', { headers: adminHeaders() }).catch(() => ({ ok: false }))
@@ -2293,7 +2293,7 @@
         const filtroDia = document.getElementById('filtroDiaHistorial').value;
 
         const filtroSelect = document.getElementById('filtroMesaHistorial');
-        const resPedidos = await fetch('/api/pedidos');
+        const resPedidos = await fetch('/api/pedidos', { headers: adminHeaders() });
         const pedidos = await resPedidos.json();
         const mesasNames = [...new Set(pedidos.map(p => p.mesa || 'Mesa 1'))].sort();
         const currentVal = filtroSelect.value;
@@ -2582,7 +2582,7 @@
     async function imprimirTicketMesa(nombreMesa) {
       try {
         const [resPedido, resConfig] = await Promise.all([
-          fetch('/api/pedidos'),
+          fetch('/api/pedidos', { headers: adminHeaders() }),
           fetch('/api/ticket-config')
         ]);
         const pedidos = await resPedido.json();
@@ -2655,7 +2655,7 @@
     async function imprimirTicket(pedidoId) {
       try {
         const [resPedido, resConfig] = await Promise.all([
-          fetch('/api/pedidos'),
+          fetch('/api/pedidos', { headers: adminHeaders() }),
           fetch('/api/ticket-config')
         ]);
         const pedidos = await resPedido.json();

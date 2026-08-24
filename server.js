@@ -35,6 +35,7 @@ function escHtml(str) {
 app.use(express.static(path.join(__dirname, 'public')));      // /sounds, /brand, /assets
 app.use('/src', express.static(path.join(__dirname, 'src'))); // /src/js, /src/styles
 app.get('/sw.js', (req, res) => res.sendFile(path.join(__dirname, 'sw.js')));
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 app.get('/index.html', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 app.get('/cliente.html', (req, res) => res.sendFile(path.join(__dirname, 'cliente.html')));
 app.get('/cocina.html', (req, res) => res.sendFile(path.join(__dirname, 'cocina.html')));
@@ -362,8 +363,9 @@ app.post('/api/pedidos', (req, res) => {
 
   // Recalcular precios server-side desde el menú para evitar manipulación del cliente
   const recalculatedItems = clientItems.map(item => {
-    const menuItem = menuData.find(m => String(m.id) === String(item.id) || m.nombre === item.nombre);
-    const precio = menuItem ? menuItem.precio : (item.precio || 0);
+    const menuItems = Array.isArray(menuData) ? menuData : (menuData.productos || []);
+    const menuItem = menuItems.find(m => String(m.id) === String(item.id) || m.nombre === item.nombre);
+    const precio = menuItem ? menuItem.precio : (item.precio || item.precioUnitario || 0);
     const cantidad = Math.max(1, parseInt(item.cantidad) || 1);
     return { ...item, precioUnitario: precio, cantidad, subtotal: precio * cantidad };
   });
@@ -387,6 +389,14 @@ app.post('/api/pedidos', (req, res) => {
   io.emit('nuevo_pedido', nuevoPedido);
 
   res.status(201).json(nuevoPedido);
+});
+
+app.patch('/api/pedidos/:id/propina', (req, res) => {
+  const pedido = pedidos.find(p => p.id === req.params.id);
+  if (!pedido) return res.status(404).json({ error: 'Pedido no encontrado' });
+  if (req.body.propina !== undefined) pedido.propina = Math.max(0, Number(req.body.propina) || 0);
+  saveData(PEDIDOS_FILE, pedidos);
+  res.json({ ok: true, propina: pedido.propina });
 });
 
 app.patch('/api/pedidos/:id', authMiddleware, (req, res) => {
