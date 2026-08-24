@@ -140,6 +140,8 @@
       .main-content { padding: 12px; }
       .menu-grid { grid-template-columns: 1fr !important; }
       .mesas-grid { grid-template-columns: 1fr !important; }
+      #viewReportes > div:nth-child(3),
+      #viewReportes > div:nth-child(4) { grid-template-columns: 1fr !important; }
     }
   </style>
 </head>
@@ -184,6 +186,9 @@
         </button>
         <button id="navHistorial" class="nav-btn" onclick="switchTab('historial')">
           <span>📋</span> Historial
+        </button>
+        <button id="navReportes" class="nav-btn" onclick="switchTab('reportes')">
+          <span>📊</span> Reportes
         </button>
         <button id="navTicket" class="nav-btn" onclick="switchTab('ticket')">
           <span>🖨️</span> Config Ticket
@@ -336,6 +341,53 @@
 
         <div id="cierreResumen"></div>
         <div id="historialGrid" class="menu-grid"></div>
+      </div>
+
+      <!-- VISTA: REPORTES Y ESTADÍSTICAS -->
+      <div id="viewReportes" style="display: none; flex-direction: column; gap: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+          <h2 style="font-size: 1.4rem; color: #fff;">📊 Reportes y Estadísticas</h2>
+          <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+            <input id="reporteDesde" type="date" style="padding: 8px 14px; border-radius: 8px; border: 1px solid #444; background: #1a1a2e; color: #fff; font-size: 0.95rem;">
+            <span style="color:#888;">hasta</span>
+            <input id="reporteHasta" type="date" style="padding: 8px 14px; border-radius: 8px; border: 1px solid #444; background: #1a1a2e; color: #fff; font-size: 0.95rem;">
+            <button onclick="cargarReportes()" style="background:#3b82f6; color:#fff; border:none; padding:8px 16px; border-radius:8px; font-weight:600; cursor:pointer;">🔍 Buscar</button>
+            <select id="reporteRapido" onchange="rapidoReportes()" style="padding:8px 12px; border-radius:8px; border:1px solid #444; background:#1a1a2e; color:#fff; font-size:0.9rem;">
+              <option value="hoy">Hoy</option>
+              <option value="7d">Últimos 7 días</option>
+              <option value="30d">Últimos 30 días</option>
+              <option value="mes">Este mes</option>
+              <option value="todo">Todo</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Tarjetas resumen -->
+        <div id="reportesTarjetas" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); gap:12px;"></div>
+
+        <!-- Gráficos -->
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+          <div style="background:#1e1e2e; border-radius:12px; padding:20px; min-height:280px;">
+            <h3 style="color:#f97316; font-size:1rem; margin-bottom:12px;">📈 Facturación Diaria</h3>
+            <div id="chartFacturacion" style="height:220px;"></div>
+          </div>
+          <div style="background:#1e1e2e; border-radius:12px; padding:20px; min-height:280px;">
+            <h3 style="color:#f97316; font-size:1rem; margin-bottom:12px;">🕐 Horarios Pico</h3>
+            <div id="chartHorarios" style="height:220px;"></div>
+          </div>
+        </div>
+
+        <!-- Tablas -->
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+          <div style="background:#1e1e2e; border-radius:12px; padding:20px; overflow-x:auto;">
+            <h3 style="color:#f97316; font-size:1rem; margin-bottom:12px;">🏆 Top Platos Más Vendidos</h3>
+            <div id="tablaTopPlatos"></div>
+          </div>
+          <div style="background:#1e1e2e; border-radius:12px; padding:20px; overflow-x:auto;">
+            <h3 style="color:#f97316; font-size:1rem; margin-bottom:12px;">💰 Margen de Ganancia por Plato</h3>
+            <div id="tablaMargen"></div>
+          </div>
+        </div>
       </div>
 
       <!-- VISTA: CONFIG TICKET -->
@@ -801,7 +853,7 @@
 
     function switchTab(tab) {
       currentTab = tab;
-      ['Dashboard', 'Menu', 'Qrs', 'Resenas', 'Promos', 'Insumos', 'Historial', 'Ticket'].forEach(t => {
+      ['Dashboard', 'Menu', 'Qrs', 'Resenas', 'Promos', 'Insumos', 'Historial', 'Reportes', 'Ticket'].forEach(t => {
         const btn = document.getElementById(`nav${t}`);
         if (btn) btn.classList.toggle('active', t.toLowerCase() === tab);
       });
@@ -813,6 +865,7 @@
       document.getElementById('viewPromos').style.display = tab === 'promos' ? 'flex' : 'none';
       document.getElementById('viewInsumos').style.display = tab === 'insumos' ? 'flex' : 'none';
       document.getElementById('viewHistorial').style.display = tab === 'historial' ? 'flex' : 'none';
+      document.getElementById('viewReportes').style.display = tab === 'reportes' ? 'flex' : 'none';
       document.getElementById('viewTicketConfig').style.display = tab === 'ticket' ? 'flex' : 'none';
 
       if (tab === 'qrs') cargarMesasView();
@@ -822,6 +875,7 @@
       else if (tab === 'insumos') renderInsumosView();
       else if (tab === 'resenas') renderResenasView();
       else if (tab === 'historial') renderHistorialView();
+      else if (tab === 'reportes') cargarReportes();
       else if (tab === 'ticket') cargarTicketConfig();
     }
 
@@ -2396,8 +2450,181 @@
       renderInsumosView();
     }
 
+    function rapidoReportes() {
+      const val = document.getElementById('reporteRapido').value;
+      const hoy = new Date();
+      const fmt = d => d.toISOString().slice(0, 10);
+      let desde = fmt(hoy);
+      let hasta = fmt(hoy);
+      if (val === '7d') { desde = fmt(new Date(hoy - 6 * 86400000)); }
+      else if (val === '30d') { desde = fmt(new Date(hoy - 29 * 86400000)); }
+      else if (val === 'mes') { desde = fmt(new Date(hoy.getFullYear(), hoy.getMonth(), 1)); }
+      else if (val === 'todo') { desde = '2020-01-01'; }
+      document.getElementById('reporteDesde').value = desde;
+      document.getElementById('reporteHasta').value = hasta;
+      cargarReportes();
+    }
+
+    async function cargarReportes() {
+      const desde = document.getElementById('reporteDesde').value;
+      const hasta = document.getElementById('reporteHasta').value;
+      if (!desde || !hasta) return;
+
+      try {
+        const res = await fetch(`/api/reportes?desde=${desde}&hasta=${hasta}`, { headers: adminHeaders() });
+        if (handleAuthError(res)) return;
+        const data = await res.json();
+        renderReportes(data);
+      } catch(e) { console.error('Error cargando reportes:', e); }
+    }
+
+    function renderReportes(d) {
+      // Tarjetas resumen
+      document.getElementById('reportesTarjetas').innerHTML = `
+        <div style="background:#1e1e2e; border-radius:12px; padding:16px; border-left:4px solid #22c55e;">
+          <div style="color:#888; font-size:0.8rem;">Facturación Total</div>
+          <div style="color:#22c55e; font-size:1.5rem; font-weight:800;">$${Number(d.totalVentas).toFixed(2)}</div>
+        </div>
+        <div style="background:#1e1e2e; border-radius:12px; padding:16px; border-left:4px solid #3b82f6;">
+          <div style="color:#888; font-size:0.8rem;">Total Pedidos</div>
+          <div style="color:#3b82f6; font-size:1.5rem; font-weight:800;">${d.totalPedidos}</div>
+        </div>
+        <div style="background:#1e1e2e; border-radius:12px; padding:16px; border-left:4px solid #eab308;">
+          <div style="color:#888; font-size:0.8rem;">Ticket Promedio</div>
+          <div style="color:#eab308; font-size:1.5rem; font-weight:800;">$${Number(d.ticketPromedio).toFixed(2)}</div>
+        </div>
+        <div style="background:#1e1e2e; border-radius:12px; padding:16px; border-left:4px solid #a78bfa;">
+          <div style="color:#888; font-size:0.8rem;">Propinas</div>
+          <div style="color:#a78bfa; font-size:1.5rem; font-weight:800;">$${Number(d.totalPropinas).toFixed(2)}</div>
+        </div>
+        <div style="background:#1e1e2e; border-radius:12px; padding:16px; border-left:4px solid #f97316;">
+          <div style="color:#888; font-size:0.8rem;">Costo Insumos</div>
+          <div style="color:#f97316; font-size:1.5rem; font-weight:800;">$${Number(d.costoInsumos).toFixed(2)}</div>
+        </div>
+        <div style="background:#1e1e2e; border-radius:12px; padding:16px; border-left:4px solid ${d.margenPorcentaje >= 50 ? '#22c55e' : d.margenPorcentaje >= 30 ? '#eab308' : '#ef4444'};">
+          <div style="color:#888; font-size:0.8rem;">Margen Bruto</div>
+          <div style="color:${d.margenPorcentaje >= 50 ? '#22c55e' : d.margenPorcentaje >= 30 ? '#eab308' : '#ef4444'}; font-size:1.5rem; font-weight:800;">${Number(d.margenPorcentaje).toFixed(1)}%</div>
+          <div style="color:#888; font-size:0.75rem;">$${Number(d.margenBruto).toFixed(2)} neto</div>
+        </div>
+      `;
+
+      // Tabla top platos
+      if (d.topPlatos.length) {
+        const maxCant = d.topPlatos[0].cantidad;
+        document.getElementById('tablaTopPlatos').innerHTML = `
+          <table style="width:100%; border-collapse:collapse; font-size:0.85rem;">
+            <thead><tr style="border-bottom:1px solid #444; color:#a1a1aa;">
+              <th style="text-align:left; padding:6px;">#</th>
+              <th style="text-align:left; padding:6px;">Plato</th>
+              <th style="text-align:center; padding:6px;">Vendidos</th>
+              <th style="text-align:right; padding:6px;">Ingresos</th>
+            </tr></thead>
+            <tbody>${d.topPlatos.slice(0, 15).map((p, i) => {
+              const pct = (p.cantidad / maxCant * 100);
+              const medals = ['🥇','🥈','🥉'];
+              return `<tr style="border-bottom:1px solid #27272a;">
+                <td style="padding:6px; color:#888;">${i < 3 ? medals[i] : i + 1}</td>
+                <td style="padding:6px; color:#fff; font-weight:${i < 3 ? '700' : '400'};">${p.nombre}</td>
+                <td style="padding:6px; text-align:center;">
+                  <div style="display:flex; align-items:center; gap:6px;">
+                    <div style="flex:1; background:#27272a; border-radius:4px; height:8px; overflow:hidden;">
+                      <div style="width:${pct}%; background:${i === 0 ? '#22c55e' : i === 1 ? '#3b82f6' : '#eab308'}; height:100%;"></div>
+                    </div>
+                    <span style="color:#f97316; font-weight:700; min-width:30px;">${p.cantidad}</span>
+                  </div>
+                </td>
+                <td style="padding:6px; text-align:right; color:#22c55e;">$${Number(p.total).toFixed(2)}</td>
+              </tr>`;
+            }).join('')}</tbody>
+          </table>`;
+      } else {
+        document.getElementById('tablaTopPlatos').innerHTML = '<p style="color:#71717a;">Sin datos para este período.</p>';
+      }
+
+      // Tabla margen
+      if (d.rankingMargen.length) {
+        document.getElementById('tablaMargen').innerHTML = `
+          <table style="width:100%; border-collapse:collapse; font-size:0.85rem;">
+            <thead><tr style="border-bottom:1px solid #444; color:#a1a1aa;">
+              <th style="text-align:left; padding:6px;">Plato</th>
+              <th style="text-align:right; padding:6px;">Ingreso</th>
+              <th style="text-align:right; padding:6px;">Costo</th>
+              <th style="text-align:right; padding:6px;">Ganancia</th>
+              <th style="text-align:right; padding:6px;">Margen</th>
+            </tr></thead>
+            <tbody>${d.rankingMargen.map(m => {
+              const margen = parseFloat(m.margenPct);
+              const color = margen >= 60 ? '#22c55e' : margen >= 40 ? '#eab308' : margen >= 20 ? '#f97316' : '#ef4444';
+              return `<tr style="border-bottom:1px solid #27272a;">
+                <td style="padding:6px; color:#fff; font-weight:600;">${m.nombre}</td>
+                <td style="padding:6px; text-align:right; color:#888;">$${Number(m.ingreso).toFixed(2)}</td>
+                <td style="padding:6px; text-align:right; color:#f87171;">$${Number(m.costo).toFixed(2)}</td>
+                <td style="padding:6px; text-align:right; color:#22c55e;">$${Number(m.ganancia).toFixed(2)}</td>
+                <td style="padding:6px; text-align:right; color:${color}; font-weight:700;">${m.margenPct}%</td>
+              </tr>`;
+            }).join('')}</tbody>
+          </table>`;
+      } else {
+        document.getElementById('tablaMargen').innerHTML = '<p style="color:#71717a;">Asigná recetas a los platos para ver márgenes de ganancia.</p>';
+      }
+
+      // Gráfico de barras: Horarios Pico
+      renderChartHorarios(d.horariosPico);
+
+      // Gráfico de línea: Facturación diaria
+      renderChartFacturacion(d.pedidosPorDia);
+    }
+
+    function renderChartHorarios(data) {
+      const container = document.getElementById('chartHorarios');
+      const maxVal = Math.max(...data.map(h => h.cantidad), 1);
+      const barW = 100 / data.length;
+
+      container.innerHTML = `<div style="display:flex; align-items:flex-end; height:180px; gap:2px; padding-bottom:24px; position:relative;">
+        ${data.map(h => {
+          const pct = (h.cantidad / maxVal * 100);
+          const isMax = h.cantidad === maxVal && h.cantidad > 0;
+          return `<div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%;">
+            <span style="color:${isMax ? '#f97316' : '#888'}; font-size:0.7rem; font-weight:${isMax ? '700' : '400'}; margin-bottom:2px;">${h.cantidad || ''}</span>
+            <div style="width:80%; height:${Math.max(pct, 2)}%; background:${isMax ? 'linear-gradient(180deg, #f97316, #ea580c)' : 'linear-gradient(180deg, #3b82f6, #2563eb)'}; border-radius:4px 4px 0 0; transition:height 0.3s;"></div>
+          </div>`;
+        }).join('')}
+      </div>
+      <div style="display:flex; gap:2px;">
+        ${data.map(h => `<div style="flex:1; text-align:center; color:#666; font-size:0.65rem;">${h.hora % 2 === 0 ? h.hora + 'h' : ''}</div>`).join('')}
+      </div>`;
+    }
+
+    function renderChartFacturacion(data) {
+      const container = document.getElementById('chartFacturacion');
+      const dias = Object.entries(data).sort((a, b) => a[0].localeCompare(b[0]));
+      if (!dias.length) {
+        container.innerHTML = '<p style="color:#71717a;">Sin datos para graficar.</p>';
+        return;
+      }
+      const maxVal = Math.max(...dias.map(([, d]) => d.ventas), 1);
+      const barW = Math.min(100 / dias.length, 40);
+
+      container.innerHTML = `<div style="display:flex; align-items:flex-end; height:180px; gap:3px; padding-bottom:24px; position:relative;">
+        ${dias.map(([fecha, d]) => {
+          const pct = (d.ventas / maxVal * 100);
+          const short = fecha.slice(5);
+          return `<div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; min-width:0;">
+            <span style="color:#888; font-size:0.65rem; margin-bottom:2px; white-space:nowrap;">$${d.ventas >= 1000 ? (d.ventas/1000).toFixed(1)+'k' : d.ventas.toFixed(0)}</span>
+            <div style="width:80%; max-width:50px; height:${Math.max(pct, 2)}%; background:linear-gradient(180deg, #22c55e, #16a34a); border-radius:4px 4px 0 0;" title="${fecha}: $${d.ventas.toFixed(2)} (${d.pedidos} pedidos)"></div>
+          </div>`;
+        }).join('')}
+      </div>
+      <div style="display:flex; gap:3px;">
+        ${dias.map(([fecha]) => `<div style="flex:1; text-align:center; color:#666; font-size:0.65rem; min-width:0; overflow:hidden; text-overflow:ellipsis;">${fecha.slice(5)}</div>`).join('')}
+      </div>`;
+    }
+
     setInterval(fetchDashboardData, 3000);
     document.getElementById('filtroDiaHistorial').value = new Date().toISOString().slice(0, 10);
+    const hoyStr = new Date().toISOString().slice(0, 10);
+    document.getElementById('reporteDesde').value = hoyStr;
+    document.getElementById('reporteHasta').value = hoyStr;
     fetchDashboardData();
     cargarMenuDesdeServidor();
   </script>

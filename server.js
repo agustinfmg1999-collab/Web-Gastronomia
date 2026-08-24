@@ -545,6 +545,106 @@ app.get('/api/cierre-caja', authMiddleware, (req, res) => {
   });
 });
 
+// ENDPOINTS REPORTES Y ESTADÍSTICAS
+app.get('/api/reportes', authMiddleware, (req, res) => {
+  const desde = req.query.desde || new Date().toISOString().slice(0, 10);
+  const hasta = req.query.hasta || desde;
+  const fechaDesde = new Date(desde + 'T00:00:00');
+  const fechaHasta = new Date(hasta + 'T23:59:59.999');
+
+  const pedidosRango = pedidos.filter(p => {
+    const f = new Date(p.fecha);
+    return f >= fechaDesde && f <= fechaHasta && p.pagado;
+  });
+
+  // Facturación total
+  const totalVentas = pedidosRango.reduce((s, p) => s + (p.total || 0), 0);
+  const totalPropinas = pedidosRango.reduce((s, p) => s + (p.propina || 0), 0);
+  const totalPedidos = pedidosRango.length;
+  const ticketPromedio = totalPedidos > 0 ? totalVentas / totalPedidos : 0;
+
+  // Platos más vendidos
+  const platosMap = {};
+  pedidosRango.forEach(p => {
+    (p.items || []).forEach(i => {
+      if (!platosMap[i.nombre]) platosMap[i.nombre] = { nombre: i.nombre, cantidad: 0, total: 0 };
+      platosMap[i.nombre].cantidad += i.cantidad;
+      platosMap[i.nombre].total += (i.subtotal || i.precioUnitario * i.cantidad || 0);
+    });
+  });
+  const topPlatos = Object.values(platosMap).sort((a, b) => b.cantidad - a.cantidad);
+
+  // Horarios pico (agrupar por hora)
+  const horariosMap = {};
+  for (let h = 8; h <= 23; h++) horariosMap[h] = 0;
+  pedidosRango.forEach(p => {
+    const hora = new Date(p.fecha).getHours();
+    if (horariosMap[hora] !== undefined) horariosMap[hora]++;
+  });
+  const horariosPico = Object.entries(horariosMap).map(([hora, cantidad]) => ({
+    hora: parseInt(hora),
+    cantidad,
+    label: `${hora}:00`
+  })).sort((a, b) => a.hora - b.hora);
+
+  // Margen de ganancia
+  let costoTotalInsumos = 0;
+  const margenesPorPlato = {};
+  pedidosRango.forEach(p => {
+    (p.items || []).forEach(i => {
+      const receta = recetas.find(r => r.dishId === String(i.id));
+      if (!receta) return;
+      let costoItem = 0;
+      receta.ingredientes.forEach(ing => {
+        const insumo = insumos.find(ins => ins.id === ing.insumoId);
+        if (insumo) costoItem += ing.cantidad * insumo.costoPorUnidad * (i.cantidad || 1);
+      });
+      costoTotalInsumos += costoItem;
+      if (!margenesPorPlato[i.nombre]) margenesPorPlato[i.nombre] = { nombre: i.nombre, ingreso: 0, costo: 0, cantidad: 0 };
+      margenesPorPlato[i.nombre].ingreso += (i.subtotal || i.precioUnitario * i.cantidad || 0);
+      margenesPorPlato[i.nombre].costo += costoItem;
+      margenesPorPlato[i.nombre].cantidad += (i.cantidad || 1);
+    });
+  });
+
+  const margenBruto = totalVentas - costoTotalInsumos;
+  const margenPorcentaje = totalVentas > 0 ? ((margenBruto / totalVentas) * 100) : 0;
+
+  const rankingMargen = Object.values(margenesPorPlato)
+    .map(m => ({
+      ...m,
+      ganancia: m.ingreso - m.costo,
+      margenPct: m.ingreso > 0 ? (((m.ingreso - m.costo) / m.ingreso) * 100).toFixed(1) : 0
+    }))
+    .sort((a, b) => b.ganancia - a.ganancia);
+
+  // Pedidos por día (para tendencia)
+  const pedidosPorDia = {};
+  pedidosRango.forEach(p => {
+    const dia = new Date(p.fecha).toISOString().slice(0, 10);
+    if (!pedidosPorDia[dia]) pedidosPorDia[dia] = { ventas: 0, pedidos: 0, propinas: 0 };
+    pedidosPorDia[dia].ventas += (p.total || 0);
+    pedidosPorDia[dia].pedidos++;
+    pedidosPorDia[dia].propinas += (p.propina || 0);
+  });
+
+  res.json({
+    desde,
+    hasta,
+    totalVentas,
+    totalPropinas,
+    totalPedidos,
+    ticketPromedio,
+    costoInsumos: costoTotalInsumos,
+    margenBruto,
+    margenPorcentaje,
+    topPlatos,
+    horariosPico,
+    rankingMargen,
+    pedidosPorDia
+  });
+});
+
 // BACKUP AUTOMÁTICO
 function crearBackup() {
   try {
