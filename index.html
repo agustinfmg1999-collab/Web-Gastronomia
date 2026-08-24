@@ -152,10 +152,11 @@
   <div id="loginOverlay" style="position:fixed; inset:0; background:#0f0f1a; z-index:10000; display:flex; justify-content:center; align-items:center;">
     <div style="background:#1e1e2e; border-radius:16px; padding:32px; max-width:360px; width:90%; text-align:center;">
       <div style="font-size:2.5rem; margin-bottom:12px;">🔒</div>
-      <h2 style="color:#fff; font-size:1.3rem; margin-bottom:16px;">Panel Admin</h2>
-      <input id="loginPassword" type="password" placeholder="Contraseña" style="width:100%; padding:12px; border-radius:8px; border:1px solid #444; background:#2a2a3e; color:#fff; font-size:1rem; margin-bottom:14px; box-sizing:border-box;" onkeydown="if(event.key==='Enter')doLogin()">
+      <h2 id="loginTitle" style="color:#fff; font-size:1.3rem; margin-bottom:16px;">Panel Admin</h2>
+      <input id="loginUsuario" type="text" placeholder="Usuario" autocomplete="username" style="width:100%; padding:12px; border-radius:8px; border:1px solid #444; background:#2a2a3e; color:#fff; font-size:1rem; margin-bottom:10px; box-sizing:border-box;" onkeydown="if(event.key==='Enter')document.getElementById('loginPassword').focus()">
+      <input id="loginPassword" type="password" placeholder="Contraseña" autocomplete="current-password" style="width:100%; padding:12px; border-radius:8px; border:1px solid #444; background:#2a2a3e; color:#fff; font-size:1rem; margin-bottom:14px; box-sizing:border-box;" onkeydown="if(event.key==='Enter')doLogin()">
       <button onclick="doLogin()" style="width:100%; background:#22c55e; color:#fff; border:none; padding:12px; border-radius:8px; font-weight:600; cursor:pointer; font-size:1rem;">Ingresar</button>
-      <p id="loginError" style="color:#ef4444; font-size:0.85rem; margin-top:10px; display:none;">Contraseña incorrecta</p>
+      <p id="loginError" style="color:#ef4444; font-size:0.85rem; margin-top:10px; display:none;">Credenciales incorrectas</p>
     </div>
   </div>
 
@@ -194,6 +195,9 @@
         </button>
         <button id="navTicket" class="nav-btn" onclick="switchTab('ticket')">
           <span>🖨️</span> Config Ticket
+        </button>
+        <button id="navUsuarios" class="nav-btn" onclick="switchTab('usuarios')">
+          <span>👥</span> Usuarios
         </button>
       </nav>
     </aside>
@@ -514,6 +518,15 @@
         </div>
       </div>
 
+      <!-- VISTA: USUARIOS -->
+      <div id="viewUsuarios" style="display: none; flex-direction: column; gap: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+          <h2 style="font-size: 1.4rem; color: #fff;">👥 Usuarios</h2>
+          <button onclick="abrirModalUsuario()" style="background:#22c55e; color:#fff; border:none; padding:10px 16px; border-radius:8px; font-weight:600; cursor:pointer;">➕ Nuevo Usuario</button>
+        </div>
+        <div id="usuariosGrid"></div>
+      </div>
+
       <!-- MODAL: NUEVO/EDITAR INSUMO -->
       <div id="modalInsumo" class="modal-overlay">
         <div class="modal-content" style="max-width:450px;">
@@ -600,6 +613,41 @@
               <input id="ajusteMotivo" type="text" placeholder="Ej: Compra, Merma, Devolución..." style="width:100%; padding:10px; border-radius:8px; border:1px solid #444; background:#2a2a3e; color:#fff; box-sizing:border-box;">
             </div>
             <button onclick="confirmarAjuste()" style="background:#22c55e; color:#fff; border:none; padding:12px; border-radius:8px; font-weight:600; cursor:pointer; font-size:1rem;">✓ Aplicar Ajuste</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODAL: NUEVO/EDITAR USUARIO -->
+      <div id="modalUsuario" class="modal-overlay">
+        <div class="modal-content" style="max-width:420px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <h3 style="color:#f97316;" id="usuarioModalTitle">Nuevo Usuario</h3>
+            <button onclick="document.getElementById('modalUsuario').classList.remove('active')" style="background:none; border:none; color:#888; font-size:1.3rem; cursor:pointer;">✕</button>
+          </div>
+          <input type="hidden" id="usuarioId">
+          <div style="display:flex; flex-direction:column; gap:12px;">
+            <div>
+              <label style="color:#aaa; font-size:0.85rem;">Usuario (login)</label>
+              <input id="usuarioLogin" type="text" placeholder="Ej: juan" style="width:100%; padding:10px; border-radius:8px; border:1px solid #444; background:#2a2a3e; color:#fff; box-sizing:border-box;">
+            </div>
+            <div>
+              <label style="color:#aaa; font-size:0.85rem;">Nombre completo</label>
+              <input id="usuarioNombre" type="text" placeholder="Ej: Juan Pérez" style="width:100%; padding:10px; border-radius:8px; border:1px solid #444; background:#2a2a3e; color:#fff; box-sizing:border-box;">
+            </div>
+            <div>
+              <label style="color:#aaa; font-size:0.85rem;">Contraseña <span id="usuarioPwHint" style="color:#666; font-size:0.75rem;">(dejar vacío para no cambiar)</span></label>
+              <input id="usuarioPassword" type="password" placeholder="••••••" style="width:100%; padding:10px; border-radius:8px; border:1px solid #444; background:#2a2a3e; color:#fff; box-sizing:border-box;">
+            </div>
+            <div>
+              <label style="color:#aaa; font-size:0.85rem;">Rol</label>
+              <select id="usuarioRol" style="width:100%; padding:10px; border-radius:8px; border:1px solid #444; background:#2a2a3e; color:#fff; box-sizing:border-box;">
+                <option value="admin">Administrador</option>
+                <option value="cajero">Cajero</option>
+                <option value="mozo">Mozo</option>
+                <option value="cocina">Cocinero</option>
+              </select>
+            </div>
+            <button onclick="guardarUsuario()" style="background:#22c55e; color:#fff; border:none; padding:12px; border-radius:8px; font-weight:600; cursor:pointer; font-size:1rem;">💾 Guardar</button>
           </div>
         </div>
       </div>
@@ -776,36 +824,82 @@
 
   <script>
     let authToken = localStorage.getItem('admin_token') || null;
+    let currentUser = JSON.parse(localStorage.getItem('admin_user') || 'null');
+
+    const ROLES_TABS = {
+      admin:  ['dashboard','menu','qrs','resenas','promos','insumos','historial','reportes','ticket','usuarios'],
+      cajero: ['dashboard','historial','reportes','resenas'],
+      mozo:   ['dashboard','resenas'],
+      cocina: ['dashboard']
+    };
+    const ALL_TABS = ['dashboard','menu','qrs','resenas','promos','insumos','historial','reportes','ticket','usuarios'];
 
     function checkAuth() {
-      if (authToken) {
+      if (authToken && currentUser) {
         document.getElementById('loginOverlay').style.display = 'none';
+        applyRolePermissions();
       } else {
         document.getElementById('loginOverlay').style.display = 'flex';
       }
     }
 
+    function applyRolePermissions() {
+      if (!currentUser) return;
+      const allowed = ROLES_TABS[currentUser.rol] || ALL_TABS;
+      ALL_TABS.forEach(tab => {
+        const btn = document.getElementById('nav' + tab.charAt(0).toUpperCase() + tab.slice(1));
+        if (btn) btn.style.display = allowed.includes(tab) ? '' : 'none';
+      });
+      if (currentUser.rol !== 'admin') {
+        document.getElementById('loginTitle').textContent = currentUser.nombre || currentUser.usuario;
+      }
+      if (!allowed.includes(currentTab)) {
+        switchTab(allowed[0] || 'dashboard');
+      }
+    }
+
     async function doLogin() {
+      const usuario = document.getElementById('loginUsuario').value.trim();
       const pw = document.getElementById('loginPassword').value;
+      if (!usuario || !pw) {
+        document.getElementById('loginError').style.display = 'block';
+        document.getElementById('loginError').textContent = 'Ingresá usuario y contraseña';
+        return;
+      }
       try {
         const res = await fetch('/api/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password: pw })
+          body: JSON.stringify({ usuario, password: pw })
         });
         if (res.ok) {
           const data = await res.json();
           authToken = data.token;
+          currentUser = { usuario: data.usuario, nombre: data.nombre, rol: data.rol };
           localStorage.setItem('admin_token', authToken);
+          localStorage.setItem('admin_user', JSON.stringify(currentUser));
           document.getElementById('loginOverlay').style.display = 'none';
           document.getElementById('loginError').style.display = 'none';
+          applyRolePermissions();
           fetchDashboardData();
         } else {
+          const data = await res.json().catch(() => ({}));
           document.getElementById('loginError').style.display = 'block';
+          document.getElementById('loginError').textContent = data.error || 'Credenciales incorrectas';
         }
       } catch (err) {
         document.getElementById('loginError').style.display = 'block';
+        document.getElementById('loginError').textContent = 'Error de conexión';
       }
+    }
+
+    function doLogout() {
+      fetch('/api/auth/logout', { method: 'POST', headers: adminHeaders() }).catch(() => {});
+      authToken = null;
+      currentUser = null;
+      localStorage.removeItem('admin_token');
+      localStorage.removeItem('admin_user');
+      document.getElementById('loginOverlay').style.display = 'flex';
     }
 
     function adminHeaders() {
@@ -953,7 +1047,7 @@
 
     function switchTab(tab) {
       currentTab = tab;
-      ['Dashboard', 'Menu', 'Qrs', 'Resenas', 'Promos', 'Insumos', 'Historial', 'Reportes', 'Ticket'].forEach(t => {
+      ['Dashboard', 'Menu', 'Qrs', 'Resenas', 'Promos', 'Insumos', 'Historial', 'Reportes', 'Ticket', 'Usuarios'].forEach(t => {
         const btn = document.getElementById(`nav${t}`);
         if (btn) btn.classList.toggle('active', t.toLowerCase() === tab);
       });
@@ -967,6 +1061,7 @@
       document.getElementById('viewHistorial').style.display = tab === 'historial' ? 'flex' : 'none';
       document.getElementById('viewReportes').style.display = tab === 'reportes' ? 'flex' : 'none';
       document.getElementById('viewTicketConfig').style.display = tab === 'ticket' ? 'flex' : 'none';
+      document.getElementById('viewUsuarios').style.display = tab === 'usuarios' ? 'flex' : 'none';
 
       if (tab === 'qrs') cargarMesasView();
       else if (tab === 'dashboard') fetchDashboardData();
@@ -977,6 +1072,7 @@
       else if (tab === 'historial') renderHistorialView();
       else if (tab === 'reportes') cargarReportes();
       else if (tab === 'ticket') cargarTicketConfig();
+      else if (tab === 'usuarios') renderUsuariosView();
     }
 
     async function fetchDashboardData() {
@@ -2967,6 +3063,91 @@
       <div style="display:flex; gap:3px;">
         ${dias.map(([fecha]) => `<div style="flex:1; text-align:center; color:#666; font-size:0.65rem; min-width:0; overflow:hidden; text-overflow:ellipsis;">${fecha.slice(5)}</div>`).join('')}
       </div>`;
+    }
+
+    // --- GESTIÓN DE USUARIOS ---
+    async function renderUsuariosView() {
+      try {
+        const res = await fetch('/api/usuarios', { headers: adminHeaders() });
+        if (handleAuthError(res)) return;
+        const users = await res.json();
+        const grid = document.getElementById('usuariosGrid');
+        const rolesLabels = { admin: 'Administrador', cajero: 'Cajero', mozo: 'Mozo', cocina: 'Cocinero' };
+        const rolesColors = { admin: '#f97316', cajero: '#3b82f6', mozo: '#22c55e', cocina: '#a855f7' };
+        grid.innerHTML = users.map(u => `
+          <div style="background:#1e1e2e; border-radius:12px; padding:16px; border-left:4px solid ${u.activo ? (rolesColors[u.rol] || '#888') : '#333'}; opacity:${u.activo ? 1 : 0.5};">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+              <strong style="color:#fff; font-size:1rem;">${u.nombre}</strong>
+              <span style="background:${rolesColors[u.rol] || '#888'}22; color:${rolesColors[u.rol] || '#888'}; padding:2px 8px; border-radius:6px; font-size:0.75rem; font-weight:600;">${rolesLabels[u.rol] || u.rol}</span>
+            </div>
+            <div style="color:#888; font-size:0.85rem; margin-bottom:6px;">@${u.usuario} ${!u.activo ? '— <span style="color:#ef4444;">Inactivo</span>' : ''}</div>
+            <div style="display:flex; gap:8px;">
+              <button onclick="editarUsuario('${u.id}')" style="background:#3b82f6; color:#fff; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-size:0.8rem; font-weight:600;">✏️ Editar</button>
+              ${u.usuario !== 'admin' ? `<button onclick="toggleUsuarioActivo('${u.id}', ${!u.activo})" style="background:${u.activo ? '#f59e0b' : '#22c55e'}; color:#fff; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-size:0.8rem; font-weight:600;">${u.activo ? '⏸ Desactivar' : '▶ Activar'}</button>` : ''}
+              ${u.usuario !== 'admin' ? `<button onclick="eliminarUsuario('${u.id}')" style="background:#ef4444; color:#fff; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-size:0.8rem; font-weight:600;">🗑️</button>` : ''}
+            </div>
+          </div>
+        `).join('') || '<p style="color:#888;">No hay usuarios</p>';
+      } catch(e) { console.error('Error usuarios:', e); }
+    }
+
+    function abrirModalUsuario(user) {
+      document.getElementById('usuarioId').value = user ? user.id : '';
+      document.getElementById('usuarioLogin').value = user ? user.usuario : '';
+      document.getElementById('usuarioLogin').disabled = !!user;
+      document.getElementById('usuarioNombre').value = user ? (user.nombre || '') : '';
+      document.getElementById('usuarioPassword').value = '';
+      document.getElementById('usuarioRol').value = user ? user.rol : 'cajero';
+      document.getElementById('usuarioModalTitle').textContent = user ? 'Editar Usuario' : 'Nuevo Usuario';
+      document.getElementById('usuarioPwHint').style.display = user ? 'inline' : 'none';
+      document.getElementById('modalUsuario').classList.add('active');
+    }
+
+    async function guardarUsuario() {
+      const id = document.getElementById('usuarioId').value;
+      const data = {
+        usuario: document.getElementById('usuarioLogin').value.trim(),
+        nombre: document.getElementById('usuarioNombre').value.trim(),
+        password: document.getElementById('usuarioPassword').value,
+        rol: document.getElementById('usuarioRol').value
+      };
+      if (!data.usuario) return alert('Ingresá un nombre de usuario');
+      if (!id && !data.password) return alert('Ingresá una contraseña');
+
+      const url = id ? `/api/usuarios/${id}` : '/api/usuarios';
+      const method = id ? 'PUT' : 'POST';
+      if (id && !data.password) delete data.password;
+
+      try {
+        const res = await fetch(url, { method, headers: adminHeaders(), body: JSON.stringify(data) });
+        if (handleAuthError(res)) return;
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          return alert(err.error || 'Error al guardar');
+        }
+        document.getElementById('modalUsuario').classList.remove('active');
+        renderUsuariosView();
+      } catch(e) { alert('Error de conexión'); }
+    }
+
+    async function editarUsuario(id) {
+      try {
+        const res = await fetch('/api/usuarios', { headers: adminHeaders() });
+        const users = await res.json();
+        const user = users.find(u => u.id === id);
+        if (user) abrirModalUsuario(user);
+      } catch(e) {}
+    }
+
+    async function toggleUsuarioActivo(id, activar) {
+      await fetch(`/api/usuarios/${id}`, { method: 'PUT', headers: adminHeaders(), body: JSON.stringify({ activo: activar }) });
+      renderUsuariosView();
+    }
+
+    async function eliminarUsuario(id) {
+      if (!confirm('¿Eliminar este usuario?')) return;
+      await fetch(`/api/usuarios/${id}`, { method: 'DELETE', headers: adminHeaders() });
+      renderUsuariosView();
     }
 
     setInterval(fetchDashboardData, 3000);

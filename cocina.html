@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cocina — El Patio Tapas Bar</title>
+  <link rel="stylesheet" href="/src/styles/theme.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0f0f1a; color: #fff; min-height: 100vh; }
+    .login-box { display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
+    .login-card { background: #1e1e2e; border-radius: 16px; padding: 32px; max-width: 360px; width: 100%; text-align: center; }
+    .login-card h2 { font-size: 1.3rem; margin-bottom: 16px; }
+    .login-card input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #444; background: #2a2a3e; color: #fff; font-size: 1rem; margin-bottom: 10px; }
+    .login-card button { width: 100%; padding: 12px; border-radius: 8px; border: none; font-weight: 600; font-size: 1rem; cursor: pointer; }
+    .login-error { color: #ef4444; font-size: 0.85rem; margin-top: 10px; display: none; }
+    .header { background: #1e1e2e; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #27272a; }
+    .header h1 { font-size: 1.2rem; color: #f97316; }
+    .header button { background: transparent; color: #888; border: 1px solid #333; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; }
+    .orders-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; padding: 20px; }
+    .order-card { background: #1e1e2e; border-radius: 12px; padding: 16px; border-left: 4px solid #f59e0b; }
+    .order-card.en_preparacion { border-left-color: #3b82f6; }
+    .order-card.entregado { border-left-color: #22c55e; opacity: 0.6; }
+    .order-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .mesa-badge { background: #f97316; color: #fff; padding: 2px 10px; border-radius: 6px; font-weight: 700; font-size: 0.85rem; }
+    .time-badge { color: #888; font-size: 0.8rem; }
+    .item-row { padding: 6px 0; border-bottom: 1px solid #27272a; font-size: 0.95rem; display: flex; justify-content: space-between; }
+    .item-row:last-child { border-bottom: none; }
+    .item-qty { color: #f97316; font-weight: 700; margin-right: 8px; }
+    .status-btn { width: 100%; padding: 10px; border: none; border-radius: 8px; font-weight: 700; font-size: 0.9rem; cursor: pointer; margin-top: 10px; }
+    .btn-pendiente { background: #3b82f6; color: #fff; }
+    .btn-en_preparacion { background: #f59e0b; color: #fff; }
+    .btn-entregado { background: #22c55e; color: #fff; }
+    .no-orders { text-align: center; color: #888; padding: 60px 20px; font-size: 1.1rem; }
+    #sonidoAlerta { display: none; }
+  </style>
+</head>
+<body>
+  <div id="loginOverlay" class="login-box">
+    <div class="login-card">
+      <div style="font-size:2.5rem; margin-bottom:12px;">🍳</div>
+      <h2>Cocina</h2>
+      <input id="loginUsuario" type="text" placeholder="Usuario" autocomplete="username">
+      <input id="loginPassword" type="password" placeholder="Contraseña" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+      <button onclick="doLogin()" style="background:#f97316; color:#fff;">Ingresar</button>
+      <p id="loginError" class="login-error">Credenciales incorrectas</p>
+    </div>
+  </div>
+
+  <div id="appMain" style="display:none;">
+    <div class="header">
+      <h1>🍳 Cocina</h1>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span id="pedidoCount" style="color:#888; font-size:0.85rem;">0 pedidos</span>
+        <button onclick="location.reload()">🔄 Actualizar</button>
+        <button onclick="doLogout()">Salir</button>
+      </div>
+    </div>
+    <div id="ordersGrid" class="orders-grid"></div>
+    <div id="noOrders" class="no-orders" style="display:none;">No hay pedidos activos</div>
+  </div>
+
+  <audio id="sonidoAlerta" src="/sounds/notification.wav" preload="auto"></audio>
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    let authToken = null;
+    let currentUser = null;
+
+    async function doLogin() {
+      const usuario = document.getElementById('loginUsuario').value.trim();
+      const pw = document.getElementById('loginPassword').value;
+      if (!usuario || !pw) return;
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ usuario, password: pw })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.rol !== 'admin' && data.rol !== 'cocina') {
+            document.getElementById('loginError').textContent = 'Este usuario no tiene acceso a cocina';
+            document.getElementById('loginError').style.display = 'block';
+            return;
+          }
+          authToken = data.token;
+          currentUser = data;
+          document.getElementById('loginOverlay').style.display = 'none';
+          document.getElementById('appMain').style.display = 'block';
+          loadOrders();
+        } else {
+          document.getElementById('loginError').style.display = 'block';
+        }
+      } catch(e) { document.getElementById('loginError').style.display = 'block'; }
+    }
+
+    function doLogout() {
+      fetch('/api/auth/logout', { method: 'POST', headers: { 'x-auth-token': authToken } }).catch(() => {});
+      authToken = null; currentUser = null;
+      document.getElementById('loginOverlay').style.display = 'flex';
+      document.getElementById('appMain').style.display = 'none';
+    }
+
+    const socket = io();
+    socket.on('nuevo_pedido', () => loadOrders());
+    socket.on('pedido_actualizado', () => loadOrders());
+    socket.on('pedido_listo', () => loadOrders());
+
+    async function loadOrders() {
+      try {
+        const res = await fetch('/api/pedidos', { headers: { 'x-auth-token': authToken } });
+        if (res.status === 401) { doLogout(); return; }
+        const pedidos = await res.json();
+        const activos = pedidos.filter(p => !p.pagado && p.estado !== 'entregado')
+          .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+        const grid = document.getElementById('ordersGrid');
+        const noOrders = document.getElementById('noOrders');
+        document.getElementById('pedidoCount').textContent = `${activos.length} pedidos`;
+
+        if (!activos.length) { grid.innerHTML = ''; noOrders.style.display = 'block'; return; }
+        noOrders.style.display = 'none';
+
+        grid.innerHTML = activos.map(p => {
+          const elapsed = Math.floor((Date.now() - new Date(p.fecha)) / 60000);
+          const elapsedClass = elapsed > 15 ? 'color:#ef4444;' : elapsed > 8 ? 'color:#f59e0b;' : 'color:#888;';
+          const nextStatus = p.estado === 'pendiente' ? 'en_preparacion' : 'entregado';
+          const btnLabel = p.estado === 'pendiente' ? '🔥 Comenzar Preparación' : '✅ Marcar Listo';
+          const btnClass = p.estado === 'pendiente' ? 'btn-pendiente' : 'btn-entregado';
+          return `
+            <div class="order-card ${p.estado}">
+              <div class="order-header">
+                <span class="mesa-badge">${p.mesa || 'Mesa ?'}</span>
+                <span class="time-badge" style="${elapsedClass}">⏱ ${elapsed} min</span>
+              </div>
+              ${(p.items || []).map(i => `
+                <div class="item-row">
+                  <span><span class="item-qty">x${i.cantidad}</span>${i.nombre}</span>
+                  ${i.notas ? `<span style="color:#f59e0b; font-size:0.75rem;">📝 ${i.notas}</span>` : ''}
+                </div>
+              `).join('')}
+              <button class="status-btn ${btnClass}" onclick="updateStatus('${p.id}', '${nextStatus}')">${btnLabel}</button>
+            </div>
+          `;
+        }).join('');
+      } catch(e) { console.error('Error loading orders:', e); }
+    }
+
+    async function updateStatus(id, estado) {
+      await fetch(`/api/pedidos/${id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json', 'x-auth-token': authToken },
+        body: JSON.stringify({ estado })
+      });
+      loadOrders();
+    }
+
+    setInterval(loadOrders, 15000);
+  </script>
+</body>
+</html>

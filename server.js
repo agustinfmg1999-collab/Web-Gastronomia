@@ -37,6 +37,8 @@ app.use('/src', express.static(path.join(__dirname, 'src'))); // /src/js, /src/s
 app.get('/sw.js', (req, res) => res.sendFile(path.join(__dirname, 'sw.js')));
 app.get('/index.html', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 app.get('/cliente.html', (req, res) => res.sendFile(path.join(__dirname, 'cliente.html')));
+app.get('/cocina.html', (req, res) => res.sendFile(path.join(__dirname, 'cocina.html')));
+app.get('/mozo.html', (req, res) => res.sendFile(path.join(__dirname, 'mozo.html')));
 
 const PEDIDOS_FILE = path.join(__dirname, 'pedidos.json');
 const MOZO_FILE = path.join(__dirname, 'mozo.json');
@@ -45,6 +47,7 @@ const MENU_FILE = path.join(__dirname, 'menu.json');
 const TICKET_FILE = path.join(__dirname, 'ticket.json');
 const RESENAS_FILE = path.join(__dirname, 'resenas.json');
 const AUTH_FILE = path.join(__dirname, 'auth.json');
+const USERS_FILE = path.join(__dirname, 'usuarios.json');
 const INSUMOS_FILE = path.join(__dirname, 'insumos.json');
 const RECETAS_FILE = path.join(__dirname, 'recetas.json');
 const ARCA_FILE = path.join(__dirname, 'arca.json');
@@ -52,24 +55,60 @@ const FACTURAS_FILE = path.join(__dirname, 'facturas.json');
 const BACKUP_DIR = path.join(__dirname, 'backups');
 
 const ADMIN_PASSWORD = 'admin123';
-let activeTokens = new Map(); // token → createdAt (with TTL)
+let activeTokens = new Map(); // token → { createdAt, usuario, rol }
 const TOKEN_TTL = 24 * 60 * 60 * 1000; // 24 horas
 
 function generateToken() {
-  const token = crypto.randomBytes(32).toString('hex');
-  activeTokens.set(token, Date.now());
-  return token;
+  return crypto.randomBytes(32).toString('hex');
+}
+
+// --- SISTEMA DE USUARIOS Y ROLES ---
+const ROLES = {
+  admin:  { label: 'Administrador', tabs: ['dashboard','menu','qrs','resenas','promos','insumos','historial','reportes','ticket','usuarios'] },
+  cajero: { label: 'Cajero',        tabs: ['dashboard','historial','reportes','resenas'] },
+  mozo:   { label: 'Mozo',          tabs: ['dashboard','resenas'] },
+  cocina: { label: 'Cocinero',      tabs: ['pedidos'] }
+};
+
+let usuarios = readData(USERS_FILE);
+if (!usuarios || !Array.isArray(usuarios) || usuarios.length === 0) {
+  usuarios = [{
+    id: 'USR-001',
+    usuario: 'admin',
+    nombre: 'Administrador',
+    password: 'admin123',
+    rol: 'admin',
+    activo: true,
+    creado: new Date().toISOString()
+  }];
+  saveData(USERS_FILE, usuarios);
+}
+
+function hashPassword(pw) {
+  return crypto.createHash('sha256').update(pw).digest('hex');
 }
 
 function authMiddleware(req, res, next) {
   const token = req.headers['x-auth-token'];
   if (!token) return res.status(401).json({ error: 'No autorizado' });
-  const createdAt = activeTokens.get(token);
-  if (!createdAt || Date.now() - createdAt > TOKEN_TTL) {
+  const tokenData = activeTokens.get(token);
+  if (!tokenData || Date.now() - tokenData.createdAt > TOKEN_TTL) {
     activeTokens.delete(token);
     return res.status(401).json({ error: 'Sesión expirada' });
   }
+  req.user = tokenData;
   next();
+}
+
+// Middleware: requiere que el usuario tenga uno de los roles permitidos
+function roleMiddleware(...rolesPermitidos) {
+  return (req, res, next) => {
+    if (!req.user) return res.status(401).json({ error: 'No autorizado' });
+    if (!rolesPermitidos.includes(req.user.rol)) {
+      return res.status(403).json({ error: 'Sin permisos para esta acción' });
+    }
+    next();
+  };
 }
 
 // Lectura y escritura persistente en disco
@@ -250,7 +289,7 @@ app.get('/api/menu', (req, res) => {
   res.json(menuToClientFormat(menuData));
 });
 
-app.post('/api/menu', authMiddleware, (req, res) => {
+app.post('/api/menu', authMiddleware, roleMiddleware('admin'), (req, res) => {
   menuData = req.body;
   saveData(MENU_FILE, menuData);
   io.emit('menu_updated');
@@ -261,7 +300,7 @@ app.post('/api/menu', authMiddleware, (req, res) => {
 const CONFIG_FILE = path.join(__dirname, 'config.json');
 let appConfig = readData(CONFIG_FILE);
 app.get('/api/config', (req, res) => res.json(appConfig));
-app.post('/api/config', authMiddleware, (req, res) => {
+app.post('/api/config', authMiddleware, roleMiddleware('admin'), (req, res) => {
   if (req.body.publicUrl !== undefined) appConfig.publicUrl = req.body.publicUrl;
   saveData(CONFIG_FILE, appConfig);
   res.json(appConfig);
@@ -271,7 +310,7 @@ app.post('/api/config', authMiddleware, (req, res) => {
 app.get('/api/mesas', (req, res) => res.json(mesas));
 app.get('/api/mesas-activas', (req, res) => res.json(mesasActivas));
 
-app.post('/api/mesas', authMiddleware, (req, res) => {
+app.post('/api/mesas', authMiddleware, roleMiddleware('admin'), (req, res) => {
   if (Array.isArray(req.body)) {
     mesas = req.body;
     saveData(MESAS_FILE, mesas);
@@ -361,7 +400,7 @@ app.patch('/api/pedidos/:id', authMiddleware, (req, res) => {
   res.json(pedido);
 });
 
-app.delete('/api/pedidos', authMiddleware, (req, res) => {
+app.delete('/api/pedidos', authMiddleware, roleMiddleware('admin'), (req, res) => {
   const { desde, hasta } = req.query;
   if (desde && hasta) {
     const fechaDesde = new Date(desde);
@@ -446,7 +485,7 @@ app.get('/api/ticket-config', (req, res) => {
   res.json(ticketConfig);
 });
 
-app.post('/api/ticket-config', authMiddleware, (req, res) => {
+app.post('/api/ticket-config', authMiddleware, roleMiddleware('admin'), (req, res) => {
   const { nombre, direccion, telefono, cuit, encabezado, pie, leyenda } = req.body;
   if (nombre !== undefined) ticketConfig.nombre = nombre;
   if (direccion !== undefined) ticketConfig.direccion = direccion;
@@ -540,17 +579,74 @@ app.delete('/api/recetas/:dishId', authMiddleware, (req, res) => {
 
 // ENDPOINTS AUTH
 app.post('/api/auth/login', (req, res) => {
-  if (req.body.password === ADMIN_PASSWORD) {
-    const token = generateToken();
-    res.json({ token });
-  } else {
-    res.status(401).json({ error: 'Contraseña incorrecta' });
+  const { usuario, password } = req.body;
+  if (!usuario || !password) {
+    return res.status(400).json({ error: 'Usuario y contraseña requeridos' });
   }
+  const user = usuarios.find(u => u.usuario === usuario && u.activo);
+  if (!user || user.password !== password) {
+    return res.status(401).json({ error: 'Credenciales incorrectas' });
+  }
+  const token = generateToken();
+  activeTokens.set(token, { createdAt: Date.now(), usuario: user.usuario, nombre: user.nombre, rol: user.rol, id: user.id });
+  res.json({ token, usuario: user.usuario, nombre: user.nombre, rol: user.rol });
 });
 
 app.post('/api/auth/logout', (req, res) => {
   const token = req.headers['x-auth-token'];
   if (token) activeTokens.delete(token);
+  res.json({ ok: true });
+});
+
+app.get('/api/auth/me', authMiddleware, (req, res) => {
+  res.json({ usuario: req.user.usuario, nombre: req.user.nombre, rol: req.user.rol });
+});
+
+// ENDPOINTS USUARIOS (solo admin)
+app.get('/api/usuarios', authMiddleware, roleMiddleware('admin'), (req, res) => {
+  const safeUsers = usuarios.map(({ password, ...u }) => u);
+  res.json(safeUsers);
+});
+
+app.post('/api/usuarios', authMiddleware, roleMiddleware('admin'), (req, res) => {
+  const { usuario, nombre, password, rol } = req.body;
+  if (!usuario || !password || !rol) {
+    return res.status(400).json({ error: 'usuario, password y rol son requeridos' });
+  }
+  if (!ROLES[rol]) return res.status(400).json({ error: 'Rol inválido' });
+  if (usuarios.find(u => u.usuario === usuario)) {
+    return res.status(409).json({ error: 'El usuario ya existe' });
+  }
+  const nuevo = {
+    id: `USR-${Date.now().toString(36)}`,
+    usuario, nombre: nombre || usuario, password, rol,
+    activo: true, creado: new Date().toISOString()
+  };
+  usuarios.push(nuevo);
+  saveData(USERS_FILE, usuarios);
+  const { password: _, ...safe } = nuevo;
+  res.status(201).json(safe);
+});
+
+app.put('/api/usuarios/:id', authMiddleware, roleMiddleware('admin'), (req, res) => {
+  const user = usuarios.find(u => u.id === req.params.id);
+  if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
+  const { nombre, password, rol, activo } = req.body;
+  if (nombre !== undefined) user.nombre = nombre;
+  if (password) user.password = password;
+  if (rol && ROLES[rol]) user.rol = rol;
+  if (activo !== undefined) user.activo = activo;
+  saveData(USERS_FILE, usuarios);
+  const { password: _, ...safe } = user;
+  res.json(safe);
+});
+
+app.delete('/api/usuarios/:id', authMiddleware, roleMiddleware('admin'), (req, res) => {
+  const user = usuarios.find(u => u.id === req.params.id);
+  if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
+  if (user.usuario === 'admin') return res.status(400).json({ error: 'No se puede eliminar el usuario admin' });
+  usuarios = usuarios.filter(u => u.id !== req.params.id);
+  saveData(USERS_FILE, usuarios);
   res.json({ ok: true });
 });
 
@@ -874,7 +970,7 @@ function crearBackup() {
     const now = new Date();
     const carpeta = path.join(BACKUP_DIR, now.toISOString().slice(0, 13).replace(':', ''));
     if (!fs.existsSync(carpeta)) fs.mkdirSync(carpeta, { recursive: true });
-    [PEDIDOS_FILE, MOZO_FILE, MESAS_FILE, MENU_FILE, TICKET_FILE, RESENAS_FILE, INSUMOS_FILE, RECETAS_FILE, ARCA_FILE, FACTURAS_FILE].forEach(f => {
+    [PEDIDOS_FILE, MOZO_FILE, MESAS_FILE, MENU_FILE, TICKET_FILE, RESENAS_FILE, USERS_FILE, INSUMOS_FILE, RECETAS_FILE, ARCA_FILE, FACTURAS_FILE].forEach(f => {
       if (fs.existsSync(f)) {
         fs.copyFileSync(f, path.join(carpeta, path.basename(f)));
       }
