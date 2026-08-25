@@ -1183,6 +1183,108 @@ app.get('/api/turnos', authMiddleware, roleMiddleware('admin', 'cajero'), (req, 
   res.json(filtrados);
 });
 
+// ========== TURNOS DE MOZOS (asignación por admin) ==========
+
+let turnosMozos = readData(path.join(__dirname, 'turnos-mozos.json'));
+if (!turnosMozos || !Array.isArray(turnosMozos)) {
+  turnosMozos = [];
+  saveData(path.join(__dirname, 'turnos-mozos.json'), turnosMozos);
+}
+
+// Admin: listar turnos de mozos (puede filtrar por fecha)
+app.get('/api/turnos-mozos', authMiddleware, roleMiddleware('admin', 'cajero'), (req, res) => {
+  const desde = req.query.desde || localDate(new Date());
+  const hasta = req.query.hasta || desde;
+  const filtrados = turnosMozos.filter(t => {
+    const f = localDate(new Date(t.inicio));
+    return f >= desde && f <= hasta;
+  }).reverse();
+  res.json(filtrados);
+});
+
+// Admin: obtener turnos activos de mozos (los que están trabajando ahora)
+app.get('/api/turnos-mozos/activos', authMiddleware, (req, res) => {
+  const activos = turnosMozos.filter(t => t.estado === 'activo');
+  res.json(activos);
+});
+
+// Admin: iniciar turno para un mozo
+app.post('/api/turnos-mozos', authMiddleware, roleMiddleware('admin', 'cajero'), (req, res) => {
+  const { mozoId } = req.body;
+  if (!mozoId) return res.status(400).json({ error: 'mozoId requerido' });
+
+  const mozo = usuarios.find(u => u.id === mozoId && u.rol === 'mozo');
+  if (!mozo) return res.status(404).json({ error: 'Mozo no encontrado' });
+
+  const yaActivo = turnosMozos.find(t => t.mozoId === mozoId && t.estado === 'activo');
+  if (yaActivo) return res.status(409).json({ error: `${mozo.nombre} ya tiene un turno activo` });
+
+  const turno = {
+    id: `TMZ-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`,
+    mozoId: mozo.id,
+    mozoNombre: mozo.nombre,
+    mozoUsuario: mozo.usuario,
+    adminAsigno: req.user.nombre || req.user.usuario,
+    estado: 'activo',
+    inicio: new Date().toISOString(),
+    fin: null
+  };
+  turnosMozos.push(turno);
+  saveData(path.join(__dirname, 'turnos-mozos.json'), turnosMozos);
+  io.emit('turno_mozo_actualizado', turno);
+  res.status(201).json(turno);
+});
+
+// Admin: finalizar turno de un mozo
+app.patch('/api/turnos-mozos/:id/cerrar', authMiddleware, roleMiddleware('admin', 'cajero'), (req, res) => {
+  const turno = turnosMozos.find(t => t.id === req.params.id);
+  if (!turno) return res.status(404).json({ error: 'Turno no encontrado' });
+  if (turno.estado !== 'activo') return res.status(400).json({ error: 'El turno ya está cerrado' });
+
+  turno.estado = 'finalizado';
+  turno.fin = new Date().toISOString();
+  turno.adminCerro = req.user.nombre || req.user.usuario;
+  saveData(path.join(__dirname, 'turnos-mozos.json'), turnosMozos);
+  io.emit('turno_mozo_actualizado', turno);
+  res.json(turno);
+});
+
+// Mozo: obtener su turno activo (requiere auth de mozo)
+app.get('/api/turnos-mozos/mi-turno', authMiddleware, (req, res) => {
+  const turno = turnosMozos.find(t => t.mozoId === req.user.id && t.estado === 'activo');
+  if (!turno) return res.json({ activo: false });
+  res.json({ activo: true, turno });
+});
+
+// Mozo: ver solo sus pedidos activos
+app.get('/api/pedidos/mis-pedidos', authMiddleware, (req, res) => {
+  const turno = turnosMozos.find(t => t.mozoId === req.user.id && t.estado === 'activo');
+  const misPedidos = pedidos.filter(p => p.mozoAsignado === req.user.id && !p.pagado);
+  res.json({ turnoActivo: !!turno, pedidos: misPedidos });
+});
+
+// Admin: asignar pedido a mozo
+app.patch('/api/pedidos/:id/asignar-mozo', authMiddleware, roleMiddleware('admin', 'cajero'), (req, res) => {
+  const pedido = pedidos.find(p => p.id === req.params.id);
+  if (!pedido) return res.status(404).json({ error: 'Pedido no encontrado' });
+
+  const { mozoId } = req.body;
+  if (mozoId) {
+    const mozo = usuarios.find(u => u.id === mozoId && u.rol === 'mozo');
+    if (!mozo) return res.status(404).json({ error: 'Mozo no encontrado' });
+    pedido.mozoAsignado = mozoId;
+    pedido.mozoNombre = mozo.nombre;
+  } else {
+    delete pedido.mozoAsignado;
+    delete pedido.mozoNombre;
+  }
+  saveData(PEDIDOS_FILE, pedidos);
+  io.emit('pedido_actualizado', pedido);
+  res.json(pedido);
+});
+
+// ========== FIN TURNOS DE MOZOS ==========
+
 // BACKUP AUTOMÁTICO
 const MAX_BACKUPS = 72; // ~3 días de backups por hora
 function crearBackup() {
@@ -1190,7 +1292,7 @@ function crearBackup() {
     const now = new Date();
     const carpeta = path.join(BACKUP_DIR, now.toISOString().slice(0, 13).replace(':', ''));
     if (!fs.existsSync(carpeta)) fs.mkdirSync(carpeta, { recursive: true });
-    [PEDIDOS_FILE, MOZO_FILE, MESAS_FILE, MENU_FILE, TICKET_FILE, RESENAS_FILE, USERS_FILE, INSUMOS_FILE, RECETAS_FILE, ARCA_FILE, FACTURAS_FILE, CAJA_FILE, TURNOS_FILE].forEach(f => {
+    [PEDIDOS_FILE, MOZO_FILE, MESAS_FILE, MENU_FILE, TICKET_FILE, RESENAS_FILE, USERS_FILE, INSUMOS_FILE, RECETAS_FILE, ARCA_FILE, FACTURAS_FILE, CAJA_FILE, TURNOS_FILE, path.join(__dirname, 'turnos-mozos.json')].forEach(f => {
       if (fs.existsSync(f)) {
         fs.copyFileSync(f, path.join(carpeta, path.basename(f)));
       }

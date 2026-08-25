@@ -14,6 +14,7 @@ arca.json
 facturas.json
 caja.json
 turnos.json
+turnos-mozos.json
 config.json
 cloudflared.exe
 .env

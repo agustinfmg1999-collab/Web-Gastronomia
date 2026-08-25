@@ -552,15 +552,24 @@
 
       <!-- VISTA: TURNOS -->
       <div id="viewTurnos" style="display: none; flex-direction: column; gap: 20px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-          <h2 style="font-size: 1.4rem; color: #fff;">🕐 Turnos</h2>
-          <div style="display:flex; gap:8px;">
-            <input id="turnoFechaDesde" type="date" style="padding:8px; border-radius:8px; border:1px solid #444; background:#2a2a3e; color:#fff;">
-            <input id="turnoFechaHasta" type="date" style="padding:8px; border-radius:8px; border:1px solid #444; background:#2a2a3e; color:#fff;">
-            <button onclick="cargarTurnos()" style="background:#3b82f6; color:#fff; border:none; padding:8px 14px; border-radius:8px; font-weight:600; cursor:pointer;">🔍</button>
-          </div>
+        <!-- TURNOS DE MOZOS (en tiempo real) -->
+        <div>
+          <h2 style="font-size: 1.2rem; color: #22c55e; margin-bottom: 12px;">🍽️ Mozos en Turno</h2>
+          <div id="mozosTurnoGrid" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:12px;"></div>
         </div>
-        <div id="turnosGrid"></div>
+        <hr style="border-color:#27272a;">
+        <!-- HISTORIAL DE TURNOS DE CAJA -->
+        <div>
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+            <h2 style="font-size: 1.2rem; color: #fff;">🕐 Turnos de Caja</h2>
+            <div style="display:flex; gap:8px;">
+              <input id="turnoFechaDesde" type="date" style="padding:8px; border-radius:8px; border:1px solid #444; background:#2a2a3e; color:#fff;">
+              <input id="turnoFechaHasta" type="date" style="padding:8px; border-radius:8px; border:1px solid #444; background:#2a2a3e; color:#fff;">
+              <button onclick="cargarTurnos()" style="background:#3b82f6; color:#fff; border:none; padding:8px 14px; border-radius:8px; font-weight:600; cursor:pointer;">🔍</button>
+            </div>
+          </div>
+          <div id="turnosGrid"></div>
+        </div>
       </div>
 
       <!-- MODAL: NUEVO/EDITAR INSUMO -->
@@ -1189,7 +1198,7 @@
       else if (tab === 'historial') renderHistorialView();
       else if (tab === 'reportes') cargarReportes();
       else if (tab === 'caja') cargarCaja();
-      else if (tab === 'turnos') cargarTurnos();
+      else if (tab === 'turnos') { cargarTurnos(); cargarMozosTurno(); }
       else if (tab === 'ticket') cargarTicketConfig();
       else if (tab === 'usuarios') renderUsuariosView();
     }
@@ -3412,6 +3421,70 @@
       alert(`Caja cerrada\nEsperado: $${data.esperado.toFixed(2)}\nCierre: $${data.montoCierre.toFixed(2)}\nDiferencia: ${data.diferencia >= 0 ? '+' : ''}$${data.diferencia.toFixed(2)}`);
       document.getElementById('modalCerrarCaja').classList.remove('active');
       cargarCaja();
+    }
+
+    // --- TURNOS DE MOZOS ---
+    async function cargarMozosTurno() {
+      try {
+        const [resMozos, resActivos] = await Promise.all([
+          fetch('/api/usuarios', { headers: adminHeaders() }),
+          fetch('/api/turnos-mozos/activos', { headers: adminHeaders() })
+        ]);
+        if (handleAuthError(resMozos)) return;
+        const todos = await resMozos.json();
+        const activos = await resActivos.json();
+        const mozos = todos.filter(u => u.rol === 'mozo' && u.activo);
+        const grid = document.getElementById('mozosTurnoGrid');
+
+        if (!mozos.length) {
+          grid.innerHTML = '<p style="color:#888; grid-column:1/-1; text-align:center; padding:20px;">No hay mozos creados. Creá uno desde el tab Usuarios con rol "Mozo".</p>';
+          return;
+        }
+
+        grid.innerHTML = mozos.map(m => {
+          const turno = activos.find(t => t.mozoId === m.id);
+          const enTurno = !!turno;
+          const desde = turno ? new Date(turno.inicio) : null;
+          const horas = enTurno ? Math.floor((Date.now() - desde) / 3600000) : 0;
+          const mins = enTurno ? Math.floor(((Date.now() - desde) % 3600000) / 60000) : 0;
+          return `
+            <div style="background:#1e1e2e; border-radius:12px; padding:16px; border-left:4px solid ${enTurno ? '#22c55e' : '#444'};">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <div>
+                  <strong style="color:#fff; font-size:0.95rem;">🍽️ ${escHtml(m.nombre)}</strong>
+                  <div style="color:#888; font-size:0.75rem;">@${escHtml(m.usuario)}</div>
+                </div>
+                <span style="background:${enTurno ? '#22c55e22; color:#22c55e' : '#44422; color:#888'}; padding:4px 10px; border-radius:20px; font-size:0.75rem; font-weight:600;">${enTurno ? 'EN TURNO' : 'INACTIVO'}</span>
+              </div>
+              ${enTurno ? `<div style="color:#888; font-size:0.8rem; margin-bottom:8px;">Desde ${desde.toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit'})} — ${horas}h ${mins}m</div>` : ''}
+              <button onclick="${enTurno ? `cerrarTurnoMozo('${turno.id}')` : `abrirTurnoMozo('${m.id}')`}" style="width:100%; padding:10px; border:none; border-radius:8px; font-weight:700; cursor:pointer; font-size:0.85rem; background:${enTurno ? '#ef4444' : '#22c55e'}; color:#fff;">
+                ${enTurno ? '⏹ Finalizar Turno' : '▶ Iniciar Turno'}
+              </button>
+            </div>`;
+        }).join('');
+      } catch(e) { console.error('Error mozos turno:', e); }
+    }
+
+    async function abrirTurnoMozo(mozoId) {
+      const res = await fetch('/api/turnos-mozos', {
+        method: 'POST', headers: { ...adminHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mozoId })
+      });
+      if (handleAuthError(res)) return;
+      const data = await res.json();
+      if (data.error) return alert(data.error);
+      cargarMozosTurno();
+    }
+
+    async function cerrarTurnoMozo(turnoId) {
+      if (!confirm('¿Finalizar el turno de este mozo?')) return;
+      const res = await fetch(`/api/turnos-mozos/${turnoId}/cerrar`, {
+        method: 'PATCH', headers: adminHeaders()
+      });
+      if (handleAuthError(res)) return;
+      const data = await res.json();
+      if (data.error) return alert(data.error);
+      cargarMozosTurno();
     }
 
     // --- TURNOS ---

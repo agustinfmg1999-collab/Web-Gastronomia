@@ -2,109 +2,267 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mozo — El Patio Tapas Bar</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#0f0f1a">
+  <title>Mozo — El Patio</title>
   <link rel="stylesheet" href="/src/styles/theme.css">
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0f0f1a; color: #fff; min-height: 100vh; }
-    .login-box { display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
-    .login-card { background: #1e1e2e; border-radius: 16px; padding: 32px; max-width: 360px; width: 100%; text-align: center; }
-    .login-card h2 { font-size: 1.3rem; margin-bottom: 16px; }
-    .login-card input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #444; background: #2a2a3e; color: #fff; font-size: 1rem; margin-bottom: 10px; }
-    .login-card button { width: 100%; padding: 12px; border-radius: 8px; border: none; font-weight: 600; font-size: 1rem; cursor: pointer; }
-    .header { background: #1e1e2e; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #27272a; }
-    .header h1 { font-size: 1.2rem; color: #22c55e; }
-    .tabs-bar { display: flex; gap: 0; background: #1e1e2e; border-bottom: 1px solid #27272a; }
-    .tab-btn { flex: 1; padding: 12px; text-align: center; background: transparent; color: #888; border: none; font-size: 0.9rem; cursor: pointer; border-bottom: 2px solid transparent; }
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #0f0f1a; color: #fff; min-height: 100vh; min-height: 100dvh; overflow-x: hidden; }
+
+    /* LOGIN */
+    .login-box { display: flex; justify-content: center; align-items: center; min-height: 100vh; min-height: 100dvh; padding: 20px; }
+    .login-card { background: #1e1e2e; border-radius: 20px; padding: 32px 24px; max-width: 380px; width: 100%; text-align: center; }
+    .login-card .logo { font-size: 3rem; margin-bottom: 8px; }
+    .login-card h2 { font-size: 1.2rem; color: #22c55e; margin-bottom: 20px; }
+    .login-card input { width: 100%; padding: 14px; border-radius: 12px; border: 1px solid #333; background: #2a2a3e; color: #fff; font-size: 1rem; margin-bottom: 12px; outline: none; }
+    .login-card input:focus { border-color: #22c55e; }
+    .login-card button { width: 100%; padding: 14px; border-radius: 12px; border: none; font-weight: 700; font-size: 1.05rem; cursor: pointer; background: #22c55e; color: #fff; }
+    .login-card button:active { transform: scale(0.98); }
+    .login-error { color: #ef4444; font-size: 0.85rem; margin-top: 10px; display: none; }
+
+    /* ESPERANDO TURNO */
+    .waiting-screen { display: none; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; min-height: 100dvh; padding: 32px; text-align: center; }
+    .waiting-screen .icon { font-size: 4rem; margin-bottom: 16px; animation: pulse 2s ease-in-out infinite; }
+    .waiting-screen h2 { font-size: 1.3rem; color: #f97316; margin-bottom: 8px; }
+    .waiting-screen p { color: #888; font-size: 0.9rem; line-height: 1.5; }
+    .waiting-screen button { margin-top: 20px; padding: 12px 24px; border-radius: 12px; border: 1px solid #333; background: transparent; color: #888; font-size: 0.9rem; cursor: pointer; }
+
+    @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+
+    /* APP */
+    #appMain { display: none; flex-direction: column; min-height: 100vh; min-height: 100dvh; }
+
+    /* HEADER */
+    .header { background: #1a1a24; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #27272a; position: sticky; top: 0; z-index: 100; }
+    .header-left { display: flex; align-items: center; gap: 10px; }
+    .header-left .avatar { width: 36px; height: 36px; border-radius: 50%; background: #22c55e; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.9rem; }
+    .header-left .name { font-weight: 600; font-size: 1rem; }
+    .header-left .turno-badge { background: #22c55e22; color: #22c55e; font-size: 0.7rem; padding: 2px 8px; border-radius: 10px; font-weight: 600; }
+    .btn-logout { background: transparent; color: #666; border: 1px solid #333; padding: 8px 14px; border-radius: 8px; font-size: 0.85rem; cursor: pointer; }
+
+    /* TABS */
+    .tabs-bar { display: flex; background: #1a1a24; border-bottom: 1px solid #27272a; }
+    .tab-btn { flex: 1; padding: 14px 8px; text-align: center; background: transparent; color: #666; border: none; font-size: 0.9rem; font-weight: 500; cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.2s; }
     .tab-btn.active { color: #22c55e; border-bottom-color: #22c55e; font-weight: 700; }
-    .section { display: none; padding: 16px; }
+    .tab-btn .badge { background: #ef4444; color: #fff; font-size: 0.65rem; padding: 1px 6px; border-radius: 10px; margin-left: 4px; vertical-align: top; }
+
+    /* SECTIONS */
+    .section { display: none; padding: 16px; flex: 1; padding-bottom: 80px; }
     .section.active { display: block; }
-    .card { background: #1e1e2e; border-radius: 12px; padding: 16px; margin-bottom: 12px; border-left: 4px solid #333; }
-    .card.active { border-left-color: #f59e0b; }
-    .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-    .item-row { padding: 4px 0; font-size: 0.9rem; color: #ccc; }
-    .item-qty { color: #f97316; font-weight: 700; }
-    .btn-call { background: #22c55e; color: #fff; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; }
-    .btn-call:disabled { background: #333; color: #666; }
-    .alert-card { background: #1e1e2e; border-radius: 12px; padding: 12px 16px; margin-bottom: 8px; border-left: 4px solid #f59e0b; display: flex; justify-content: space-between; align-items: center; }
-    .empty { text-align: center; color: #888; padding: 40px 20px; }
+
+    /* CARDS */
+    .order-card { background: #1e1e2e; border-radius: 14px; margin-bottom: 12px; overflow: hidden; border-left: 4px solid #f59e0b; }
+    .order-card.pendiente { border-left-color: #f59e0b; }
+    .order-card.en_preparacion { border-left-color: #3b82f6; }
+    .order-card-header { padding: 14px 16px 8px; display: flex; justify-content: space-between; align-items: center; }
+    .order-mesa { font-size: 1.1rem; font-weight: 800; color: #f97316; }
+    .order-status { font-size: 0.75rem; padding: 4px 10px; border-radius: 20px; font-weight: 600; }
+    .order-status.pendiente { background: #f59e0b22; color: #f59e0b; }
+    .order-status.en_preparacion { background: #3b82f622; color: #3b82f6; }
+    .order-time { color: #666; font-size: 0.75rem; padding: 0 16px 4px; }
+    .order-items { padding: 8px 16px; }
+    .order-item { display: flex; justify-content: space-between; padding: 6px 0; font-size: 0.88rem; color: #ccc; border-bottom: 1px solid #27272a; }
+    .order-item:last-child { border-bottom: none; }
+    .order-item-qty { color: #f97316; font-weight: 700; margin-right: 8px; }
+    .order-item-notes { color: #888; font-size: 0.75rem; font-style: italic; }
+    .order-footer { padding: 10px 16px 14px; display: flex; gap: 8px; }
+    .order-footer button { flex: 1; padding: 12px; border: none; border-radius: 10px; font-weight: 700; font-size: 0.85rem; cursor: pointer; }
+    .order-footer button:active { transform: scale(0.97); }
+    .btn-next-state { background: #22c55e; color: #fff; }
+    .btn-call-kitchen { background: #f9731622; color: #f97316; border: 1px solid #f9731633 !important; }
+
+    /* CALL CARDS */
+    .call-card { background: #1e1e2e; border-radius: 14px; padding: 16px; margin-bottom: 10px; border-left: 4px solid #ef4444; display: flex; justify-content: space-between; align-items: center; }
+    .call-info { flex: 1; }
+    .call-mesa { font-size: 1rem; font-weight: 700; }
+    .call-tipo { color: #aaa; font-size: 0.85rem; }
+    .call-time { color: #666; font-size: 0.75rem; }
+    .btn-attend { background: #22c55e; color: #fff; border: none; padding: 12px 20px; border-radius: 10px; font-weight: 700; font-size: 0.85rem; cursor: pointer; white-space: nowrap; }
+    .btn-attend:active { transform: scale(0.95); }
+
+    /* EMPTY */
+    .empty { text-align: center; color: #666; padding: 60px 20px; }
+    .empty .icon { font-size: 3rem; margin-bottom: 12px; }
+
+    /* SONIDO */
+    .sound-toggle { position: fixed; bottom: 16px; right: 16px; z-index: 50; background: #2a2a3e; border: 1px solid #333; border-radius: 50%; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; cursor: pointer; }
+
+    /* TOAST */
+    .toast { position: fixed; bottom: 70px; left: 50%; transform: translateX(-50%); background: #22c55e; color: #fff; padding: 12px 20px; border-radius: 12px; font-weight: 600; font-size: 0.9rem; z-index: 200; opacity: 0; transition: opacity 0.3s; pointer-events: none; box-shadow: 0 4px 20px rgba(34,197,94,0.3); }
+    .toast.show { opacity: 1; }
   </style>
 </head>
 <body>
+
+  <!-- LOGIN -->
   <div id="loginOverlay" class="login-box">
     <div class="login-card">
-      <div style="font-size:2.5rem; margin-bottom:12px;">🍽️</div>
-      <h2>Mozo</h2>
-      <input id="loginUsuario" type="text" placeholder="Usuario" autocomplete="username">
+      <div class="logo">🍽️</div>
+      <h2>El Patio — Mozo</h2>
+      <input id="loginUsuario" type="text" placeholder="Tu usuario" autocomplete="username">
       <input id="loginPassword" type="password" placeholder="Contraseña" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
-      <button onclick="doLogin()" style="background:#22c55e; color:#fff;">Ingresar</button>
-      <p id="loginError" style="color:#ef4444; font-size:0.85rem; margin-top:10px; display:none;">Credenciales incorrectas</p>
+      <button onclick="doLogin()">Entrar</button>
+      <p id="loginError" class="login-error"></p>
     </div>
   </div>
 
-  <div id="appMain" style="display:none;">
+  <!-- ESPERANDO TURNO -->
+  <div id="waitingScreen" class="waiting-screen">
+    <div class="icon">⏳</div>
+    <h2>Sin turno activo</h2>
+    <p>Esperá a que el admin habilite tu turno para empezar a trabajar.</p>
+    <p style="margin-top:8px; font-size:0.8rem;">Pedile al encargado que active tu turno desde el panel.</p>
+    <button onclick="checkMiTurno()">🔄 Actualizar</button>
+    <button onclick="doLogout()" style="margin-top:8px; border-color:#ef4444; color:#ef4444;">Salir</button>
+  </div>
+
+  <!-- APP PRINCIPAL -->
+  <div id="appMain">
     <div class="header">
-      <h1>🍽️ <span id="userName">Mozo</span></h1>
-      <button onclick="doLogout()" style="background:transparent; color:#888; border:1px solid #333; padding:6px 14px; border-radius:6px; cursor:pointer;">Salir</button>
+      <div class="header-left">
+        <div class="avatar" id="userAvatar"></div>
+        <div>
+          <div class="name" id="userName">Mozo</div>
+          <div class="turno-badge" id="turnoBadge" style="display:none;">⏱ 0h 0m</div>
+        </div>
+      </div>
+      <button class="btn-logout" onclick="doLogout()">Salir</button>
     </div>
 
     <div class="tabs-bar">
-      <button class="tab-btn active" onclick="showSection('pedidos', this)">📋 Pedidos</button>
-      <button class="tab-btn" onclick="showSection('llamadas', this)">🔔 Llamadas</button>
+      <button class="tab-btn active" onclick="showSection('pedidos', this)">
+        📋 Pedidos <span class="badge" id="badgePedidos" style="display:none;">0</span>
+      </button>
+      <button class="tab-btn" onclick="showSection('llamadas', this)">
+        🔔 Llamadas <span class="badge" id="badgeLlamadas" style="display:none;">0</span>
+      </button>
     </div>
 
     <div id="secPedidos" class="section active">
       <div id="pedidosGrid"></div>
-      <div id="pedidosEmpty" class="empty">No hay pedidos activos</div>
+      <div id="pedidosEmpty" class="empty">
+        <div class="icon">📋</div>
+        <p>No hay pedidos activos</p>
+      </div>
     </div>
 
     <div id="secLlamadas" class="section">
       <div id="llamadasGrid"></div>
-      <div id="llamadasEmpty" class="empty">No hay llamadas pendientes</div>
+      <div id="llamadasEmpty" class="empty">
+        <div class="icon">🔔</div>
+        <p>No hay llamadas pendientes</p>
+      </div>
     </div>
   </div>
+
+  <div id="toast" class="toast"></div>
+  <audio id="notifSound" preload="auto" src="/sounds/notification.wav"></audio>
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
     let authToken = null;
     let currentUser = null;
+    let turnoInicio = null;
+    let audioEnabled = true;
 
+    function escHtml(s) {
+      if (typeof s !== 'string') return s;
+      return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 3000);
+    }
+
+    function playSound() {
+      if (!audioEnabled) return;
+      try { document.getElementById('notifSound').play().catch(()=>{}); } catch(e){}
+    }
+
+    // --- LOGIN ---
     async function doLogin() {
       const usuario = document.getElementById('loginUsuario').value.trim();
       const pw = document.getElementById('loginPassword').value;
       if (!usuario || !pw) return;
       try {
         const res = await fetch('/api/auth/login', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ usuario, password: pw })
         });
         if (res.ok) {
           const data = await res.json();
-          if (!['admin', 'mozo', 'cajero'].includes(data.rol)) {
-            document.getElementById('loginError').textContent = 'Este usuario no tiene acceso de mozo';
+          if (!['admin','mozo','cajero'].includes(data.rol)) {
+            document.getElementById('loginError').textContent = 'Sin acceso de mozo';
             document.getElementById('loginError').style.display = 'block';
             return;
           }
           authToken = data.token;
           currentUser = data;
+          localStorage.setItem('mozo_token', authToken);
+          localStorage.setItem('mozo_user', JSON.stringify(currentUser));
           document.getElementById('loginOverlay').style.display = 'none';
-          document.getElementById('appMain').style.display = 'block';
+          document.getElementById('loginError').style.display = 'none';
           document.getElementById('userName').textContent = data.nombre || data.usuario;
-          loadData();
+          document.getElementById('userAvatar').textContent = (data.nombre || data.usuario).charAt(0).toUpperCase();
+          checkMiTurno();
         } else {
+          document.getElementById('loginError').textContent = 'Credenciales incorrectas';
           document.getElementById('loginError').style.display = 'block';
         }
-      } catch(e) { document.getElementById('loginError').style.display = 'block'; }
+      } catch(e) {
+        document.getElementById('loginError').textContent = 'Error de conexión';
+        document.getElementById('loginError').style.display = 'block';
+      }
     }
 
     function doLogout() {
       fetch('/api/auth/logout', { method: 'POST', headers: { 'x-auth-token': authToken } }).catch(() => {});
-      authToken = null; currentUser = null;
-      document.getElementById('loginOverlay').style.display = 'flex';
+      authToken = null; currentUser = null; turnoInicio = null;
+      localStorage.removeItem('mozo_token');
+      localStorage.removeItem('mozo_user');
       document.getElementById('appMain').style.display = 'none';
+      document.getElementById('waitingScreen').style.display = 'none';
+      document.getElementById('loginOverlay').style.display = 'flex';
     }
 
+    // --- CHECK TURNO ---
+    async function checkMiTurno() {
+      if (!authToken) return;
+      try {
+        const res = await fetch('/api/turnos-mozos/mi-turno', { headers: { 'x-auth-token': authToken } });
+        if (res.status === 401) { doLogout(); return; }
+        const data = await res.json();
+        if (data.activo) {
+          turnoInicio = new Date(data.turno.inicio);
+          document.getElementById('waitingScreen').style.display = 'none';
+          document.getElementById('appMain').style.display = 'flex';
+          document.getElementById('turnoBadge').style.display = 'inline';
+          updateTurnoBadge();
+          loadData();
+        } else {
+          document.getElementById('appMain').style.display = 'none';
+          document.getElementById('waitingScreen').style.display = 'flex';
+          document.getElementById('turnoBadge').style.display = 'none';
+        }
+      } catch(e) { console.error('Error check turno:', e); }
+    }
+
+    function updateTurnoBadge() {
+      if (!turnoInicio) return;
+      const diff = Date.now() - turnoInicio.getTime();
+      const h = Math.floor(diff / 3600000);
+      const m = Math.floor((diff % 3600000) / 60000);
+      document.getElementById('turnoBadge').textContent = `⏱ ${h}h ${m}m`;
+    }
+
+    // --- SECCIONES ---
     function showSection(name, btn) {
       document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -112,75 +270,141 @@
       btn.classList.add('active');
     }
 
+    // --- SOCKET.IO ---
     const socket = io();
     socket.on('nuevo_pedido', () => loadData());
     socket.on('pedido_actualizado', () => loadData());
-    socket.on('nueva_llamada_mozo', () => loadData());
+    socket.on('nueva_llamada_mozo', (data) => {
+      loadData();
+      playSound();
+      if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+      showToast(`🔔 Llamada de ${data.mesa || 'mesa'}`);
+    });
     socket.on('llamada_atendida', () => loadData());
+    socket.on('turno_mozo_actualizado', () => checkMiTurno());
 
+    // --- CARGAR DATOS ---
     async function loadData() {
+      if (!authToken) return;
       try {
         const [resP, resL] = await Promise.all([
           fetch('/api/pedidos', { headers: { 'x-auth-token': authToken } }),
           fetch('/api/mozo', { headers: { 'x-auth-token': authToken } })
         ]);
         if (resP.status === 401 || resL.status === 401) { doLogout(); return; }
+
         const pedidos = await resP.json();
         const llamadas = await resL.json();
 
-        const activos = pedidos.filter(p => !p.pagado && p.estado !== 'entregado')
+        // Pedidos asignados al mozo, no pagados y no entregados
+        const misPedidos = pedidos
+          .filter(p => p.mozoAsignado === currentUser.id && !p.pagado && p.estado !== 'entregado')
           .sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+
         const grid = document.getElementById('pedidosGrid');
         const empty = document.getElementById('pedidosEmpty');
+        const badgeP = document.getElementById('badgePedidos');
 
-        if (!activos.length) { grid.innerHTML = ''; empty.style.display = 'block'; }
-        else {
+        if (!misPedidos.length) {
+          grid.innerHTML = '';
+          empty.style.display = 'block';
+          badgeP.style.display = 'none';
+        } else {
           empty.style.display = 'none';
-          grid.innerHTML = activos.map(p => {
+          badgeP.style.display = 'inline';
+          badgeP.textContent = misPedidos.length;
+          grid.innerHTML = misPedidos.map(p => {
             const elapsed = Math.floor((Date.now() - new Date(p.fecha)) / 60000);
             const statusLabel = { pendiente: '🟡 Pendiente', en_preparacion: '🔵 En preparación' };
-            const items = (p.items || []).map(i => `<div class="item-row"><span class="item-qty">x${i.cantidad}</span> ${i.nombre}${i.notas ? ' 📝' : ''}</div>`).join('');
+            const nextAction = { pendiente: 'en_preparacion', en_preparacion: 'entregado' };
+            const nextLabel = { pendiente: '🔨 Preparar', entregar: '✅ Entregar' };
+            const items = (p.items || []).map(i =>
+              `<div class="order-item">
+                <div><span class="order-item-qty">×${i.cantidad}</span>${escHtml(i.nombre)}</div>
+                ${i.notas ? `<div class="order-item-notes">📝 ${escHtml(i.notas)}</div>` : ''}
+              </div>`
+            ).join('');
             return `
-              <div class="card active">
-                <div class="card-header">
-                  <strong>${p.mesa}</strong>
-                  <span style="color:#888; font-size:0.8rem;">⏱ ${elapsed}min — ${statusLabel[p.estado] || p.estado}</span>
+              <div class="order-card ${p.estado}">
+                <div class="order-card-header">
+                  <span class="order-mesa">Mesa ${escHtml(p.mesa)}</span>
+                  <span class="order-status ${p.estado}">${statusLabel[p.estado] || p.estado}</span>
                 </div>
-                ${items}
-                ${p.tiempoEstimado ? `<div style="color:#f97316; font-size:0.8rem; margin-top:6px;">~${p.tiempoEstimado} min estimado</div>` : ''}
+                <div class="order-time">⏱ ${elapsed}min${p.tiempoEstimado ? ` — ~${p.tiempoEstimado}min restantes` : ''}</div>
+                <div class="order-items">${items}</div>
+                <div class="order-footer">
+                  <button class="btn-next-state" onclick="advancePedido('${p.id}','${nextAction[p.estado]}')">
+                    ${p.estado === 'pendiente' ? '🔨 Preparar' : '✅ Entregado'}
+                  </button>
+                </div>
               </div>`;
           }).join('');
         }
 
+        // Llamadas pendientes
         const pendLlamadas = llamadas.filter(l => !l.atendido);
         const lGrid = document.getElementById('llamadasGrid');
         const lEmpty = document.getElementById('llamadasEmpty');
-        if (!pendLlamadas.length) { lGrid.innerHTML = ''; lEmpty.style.display = 'block'; }
-        else {
+        const badgeL = document.getElementById('badgeLlamadas');
+
+        if (!pendLlamadas.length) {
+          lGrid.innerHTML = '';
+          lEmpty.style.display = 'block';
+          badgeL.style.display = 'none';
+        } else {
           lEmpty.style.display = 'none';
+          badgeL.style.display = 'inline';
+          badgeL.textContent = pendLlamadas.length;
           lGrid.innerHTML = pendLlamadas.map(l => {
             const elapsed = Math.floor((Date.now() - new Date(l.fecha)) / 60000);
             return `
-              <div class="alert-card">
-                <div>
-                  <strong>${l.mesa}</strong> — ${l.tipo}
-                  <span style="color:#888; font-size:0.8rem; margin-left:8px;">⏱ ${elapsed}min</span>
+              <div class="call-card">
+                <div class="call-info">
+                  <div class="call-mesa">Mesa ${escHtml(l.mesa)}</div>
+                  <div class="call-tipo">${escHtml(l.tipo)}</div>
+                  <div class="call-time">⏱ ${elapsed}min</div>
                 </div>
-                <button onclick="attendCall('${l.id}')" class="btn-call">✓ Atender</button>
+                <button class="btn-attend" onclick="attendCall('${l.id}')">✓ Atender</button>
               </div>`;
           }).join('');
         }
+
       } catch(e) { console.error('Error:', e); }
+    }
+
+    async function advancePedido(id, newState) {
+      if (!newState) return;
+      await fetch(`/api/pedidos/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'x-auth-token': authToken },
+        body: JSON.stringify({ estado: newState })
+      });
+      if (navigator.vibrate) navigator.vibrate(50);
+      loadData();
     }
 
     async function attendCall(id) {
       await fetch(`/api/mozo/${id}`, {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json', 'x-auth-token': authToken }
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'x-auth-token': authToken }
       });
+      if (navigator.vibrate) navigator.vibrate(50);
       loadData();
     }
 
-    setInterval(loadData, 10000);
+    // --- INIT ---
+    const savedToken = localStorage.getItem('mozo_token');
+    const savedUser = localStorage.getItem('mozo_user');
+    if (savedToken && savedUser) {
+      authToken = savedToken;
+      currentUser = JSON.parse(savedUser);
+      document.getElementById('loginOverlay').style.display = 'none';
+      document.getElementById('userName').textContent = currentUser.nombre || currentUser.usuario;
+      document.getElementById('userAvatar').textContent = (currentUser.nombre || currentUser.usuario).charAt(0).toUpperCase();
+      checkMiTurno();
+    }
+
+    setInterval(() => { loadData(); updateTurnoBadge(); }, 8000);
   </script>
 </body>
 </html>
