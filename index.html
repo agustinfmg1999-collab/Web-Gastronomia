@@ -552,6 +552,17 @@
 
       <!-- VISTA: TURNOS -->
       <div id="viewTurnos" style="display: none; flex-direction: column; gap: 20px;">
+        <!-- LINK COMPARTIBLE PARA MOZOS -->
+        <div id="mozoLinkBox" style="background: linear-gradient(135deg, #1e293b, #0f172a); border: 1px solid #22c55e33; border-radius: 14px; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+          <div>
+            <div style="color: #22c55e; font-weight: 700; font-size: 0.95rem; margin-bottom: 4px;">📱 Link de la app de Mozos</div>
+            <div id="mozoLinkText" style="color: #ccc; font-size: 0.85rem; font-family: monospace; word-break: break-all;"></div>
+          </div>
+          <div style="display:flex; gap:8px; flex-shrink:0;">
+            <button onclick="copiarMozoLink()" id="btnCopiarLink" style="background: #22c55e; color: #fff; border: none; padding: 10px 18px; border-radius: 10px; font-weight: 700; cursor: pointer; font-size: 0.85rem; white-space: nowrap;">📋 Copiar</button>
+            <button onclick="compartirMozoLink()" id="btnCompartirLink" style="background: #3b82f6; color: #fff; border: none; padding: 10px 18px; border-radius: 10px; font-weight: 700; cursor: pointer; font-size: 0.85rem; white-space: nowrap; display:none;">📲 Compartir</button>
+          </div>
+        </div>
         <!-- TURNOS DE MOZOS (en tiempo real) -->
         <div>
           <h2 style="font-size: 1.2rem; color: #22c55e; margin-bottom: 12px;">🍽️ Mozos en Turno</h2>
@@ -1198,7 +1209,7 @@
       else if (tab === 'historial') renderHistorialView();
       else if (tab === 'reportes') cargarReportes();
       else if (tab === 'caja') cargarCaja();
-      else if (tab === 'turnos') { cargarTurnos(); cargarMozosTurno(); }
+      else if (tab === 'turnos') { cargarTurnos(); cargarMozosTurno(); initMozoLink(); }
       else if (tab === 'ticket') cargarTicketConfig();
       else if (tab === 'usuarios') renderUsuariosView();
     }
@@ -3421,6 +3432,41 @@
       alert(`Caja cerrada\nEsperado: $${data.esperado.toFixed(2)}\nCierre: $${data.montoCierre.toFixed(2)}\nDiferencia: ${data.diferencia >= 0 ? '+' : ''}$${data.diferencia.toFixed(2)}`);
       document.getElementById('modalCerrarCaja').classList.remove('active');
       cargarCaja();
+    }
+
+    // --- LINK MOZO ---
+    function getMozoUrl() {
+      const cfg = (typeof appConfig !== 'undefined' && appConfig && appConfig.publicUrl) ? appConfig.publicUrl : '';
+      if (cfg) return cfg.replace(/\/+$/, '') + '/mozo.html';
+      return window.location.origin + '/mozo.html';
+    }
+
+    function initMozoLink() {
+      document.getElementById('mozoLinkText').textContent = getMozoUrl();
+      if (navigator.share) {
+        document.getElementById('btnCompartirLink').style.display = 'inline-block';
+      }
+    }
+
+    function copiarMozoLink() {
+      const url = getMozoUrl();
+      navigator.clipboard.writeText(url).then(() => {
+        const btn = document.getElementById('btnCopiarLink');
+        btn.textContent = '\u2705 Copiado!';
+        btn.style.background = '#16a34a';
+        setTimeout(() => { btn.textContent = '\uD83D\uDCCB Copiar'; btn.style.background = '#22c55e'; }, 2000);
+      }).catch(() => {
+        prompt('Copiá este link:', url);
+      });
+    }
+
+    function compartirMozoLink() {
+      const url = getMozoUrl();
+      if (navigator.share) {
+        navigator.share({ title: 'App Mozo - El Patio', text: 'Entrá a la app de mozo:', url }).catch(() => {});
+      } else {
+        copiarMozoLink();
+      }
     }
 
     // --- TURNOS DE MOZOS ---
