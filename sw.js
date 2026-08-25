@@ -1,6 +1,5 @@
-const CACHE_NAME = 'elpatio-v2';
+const CACHE_NAME = 'elpatio-v3';
 const ASSETS = [
-  '/',
   '/cliente.html',
   '/src/styles/theme.css',
   '/src/styles/animations.css',
