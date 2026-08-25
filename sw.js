@@ -1,4 +1,4 @@
-const CACHE_NAME = 'elpatio-v3';
+const CACHE_NAME = 'elpatio-v4';
 const ASSETS = [
   '/cliente.html',
   '/src/styles/theme.css',
@@ -25,11 +25,18 @@ self.addEventListener('activate', (e) => {
 
 self.addEventListener('fetch', (e) => {
   if (e.request.url.includes('/api/')) return;
+  if (e.request.url.includes('/sounds/')) return;
   e.respondWith(
-    caches.match(e.request).then(cached => cached || fetch(e.request).then(res => {
-      const clone = res.clone();
-      caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
-      return res;
-    }).catch(() => caches.match('/cliente.html')))
+    caches.match(e.request).then(cached => {
+      if (cached) return cached;
+      return fetch(e.request).then(res => {
+        const url = new URL(e.request.url);
+        if (ASSETS.includes(url.pathname)) {
+          const clone = res.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
+        }
+        return res;
+      }).catch(() => caches.match('/cliente.html'));
+    })
   );
 });
