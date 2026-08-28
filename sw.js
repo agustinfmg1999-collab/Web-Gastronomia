@@ -1,10 +1,9 @@
-const CACHE_NAME = 'elpatio-v4';
+const CACHE_NAME = 'elpatio-v9';
 const ASSETS = [
   '/cliente.html',
   '/src/styles/theme.css',
   '/src/styles/animations.css',
-  '/src/styles/client.css',
-  '/src/js/app.js'
+  '/src/styles/client.css'
 ];
 
 self.addEventListener('install', (e) => {

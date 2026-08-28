@@ -489,7 +489,22 @@
       try {
         const res = await fetch('/api/menu');
         const data = await res.json();
-        menuCache = data.productos || data || [];
+        const items = data.products || data.productos || data || [];
+        menuCache = items.map(p => ({
+          id: p.id,
+          nombre: p.name || p.nombre,
+          categoria: p.category || p.categoria || 'Otros',
+          precio: p.price || p.precio || 0
+        }));
+        const promos = data.promos || [];
+        promos.forEach(p => {
+          menuCache.push({
+            id: p.id,
+            nombre: p.name || p.nombre || p.titulo,
+            categoria: 'Promociones',
+            precio: p.price || p.precio || 0
+          });
+        });
       } catch (e) { menuCache = []; }
     }
 
@@ -497,8 +512,9 @@
       try {
         const res = await fetch('/api/mesas');
         const data = await res.json();
+        const mesas = data.value || data || [];
         const select = document.getElementById('newOrderMesa');
-        select.innerHTML = data.map(m => `<option value="${escHtml(m.nombre || m)}">${escHtml(m.nombre || m)}</option>`).join('');
+        select.innerHTML = mesas.map(m => `<option value="${escHtml(m.nombre || m)}">${escHtml(m.nombre || m)}</option>`).join('');
       } catch (e) {}
     }
 
@@ -625,6 +641,7 @@
       document.getElementById('userName').textContent = currentUser.nombre || currentUser.usuario;
       document.getElementById('userAvatar').textContent = (currentUser.nombre || currentUser.usuario).charAt(0).toUpperCase();
       checkMiTurno();
+      subscribeToPush();
     }
 
     setInterval(() => { loadData(); updateTurnoBadge(); }, 8000);

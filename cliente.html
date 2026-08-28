@@ -156,19 +156,6 @@
             <button class="tip-btn" data-tip="20" onclick="selectTip(20, this)" style="flex:1; padding:6px; border-radius:6px; border:1px solid #3f3f46; background:#18181b; color:#ccc; cursor:pointer; font-size:0.8rem;">20%</button>
           </div>
         </div>
-        <div style="width:100%; margin-bottom:10px;">
-          <p style="color:#a1a1aa; font-size:0.8rem; margin-bottom:6px;">📅 Programar pedido (opcional)</p>
-          <div style="display:flex; gap:6px; align-items:center;">
-            <label style="display:flex; align-items:center; gap:4px; color:#ccc; font-size:0.85rem; cursor:pointer;">
-              <input type="checkbox" id="programarCheck" onchange="toggleProgramarPedido()" style="accent-color:#f97316;">
-              Programar para después
-            </label>
-          </div>
-          <div id="programarFields" style="display:none; margin-top:8px; display:flex; gap:8px; flex-wrap:wrap;">
-            <input type="date" id="programarFecha" style="flex:1; min-width:120px; padding:8px; border-radius:8px; border:1px solid #444; background:#2a2a3e; color:#fff; font-size:0.85rem;">
-            <input type="time" id="programarHora" style="flex:1; min-width:100px; padding:8px; border-radius:8px; border:1px solid #444; background:#2a2a3e; color:#fff; font-size:0.85rem;">
-          </div>
-        </div>
         <button id="sendOrderBtn" class="btn-confirm">Enviar Pedido a Cocina</button>
       </div>
     </div>
@@ -423,23 +410,6 @@
     }
 
     // --- PEDIDOS PROGRAMADOS ---
-    function toggleProgramarPedido() {
-      const checked = document.getElementById('programarCheck').checked;
-      const fields = document.getElementById('programarFields');
-      const sendBtn = document.getElementById('sendOrderBtn');
-      if (checked) {
-        fields.style.display = 'flex';
-        const now = new Date();
-        now.setMinutes(now.getMinutes() + 30);
-        document.getElementById('programarFecha').value = now.toISOString().split('T')[0];
-        document.getElementById('programarHora').value = now.toTimeString().slice(0, 5);
-        sendBtn.textContent = '📅 Programar Pedido';
-      } else {
-        fields.style.display = 'none';
-        sendBtn.textContent = 'Enviar Pedido a Cocina';
-      }
-    }
-
     async function unirseListaEspera() {
       const nombre = document.getElementById('listaEsperaNombre').value.trim();
       const personas = parseInt(document.getElementById('listaEsperaPersonas').value) || 2;
@@ -654,10 +624,10 @@
   </script>
 
   <!-- Lógica Principal Aplicación del Cliente -->
-  <script src="./src/js/app.js"></script>
+  <script src="./src/js/app.js?v=20260828b"></script>
   <script>
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(() => {});
+      navigator.serviceWorker.register('/sw.js?v=20260828').catch(() => {});
     }
   </script>
 </body>

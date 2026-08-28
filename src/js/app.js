@@ -73,7 +73,7 @@ function getMesaNumber() {
 function initMesa() {
   const mesa = getMesaNumber();
   const badge = document.getElementById('mesaBadge');
-  if (badge) badge.innerHTML = `<span class="dot">●</span> Mesa ${mesa}`;
+  if (badge) badge.innerHTML = `<span class="dot">●</span> ${mesa}`;
 }
 
 function getMenuData() {
@@ -671,15 +671,6 @@ async function confirmAndSendOrder() {
     estado: 'pendiente'
   };
 
-  const programarCheck = document.getElementById('programarCheck');
-  if (programarCheck && programarCheck.checked) {
-    const fecha = document.getElementById('programarFecha').value;
-    const hora = document.getElementById('programarHora').value;
-    if (fecha && hora) {
-      orderData.fechaProgramada = new Date(`${fecha}T${hora}:00`).toISOString();
-    }
-  }
-
   try {
     const response = await fetch('/api/pedidos', {
       method: 'POST',
@@ -696,7 +687,7 @@ async function confirmAndSendOrder() {
       throw new Error('Servidor indisponible');
     }
   } catch (error) {
-    alert(`[MODO PRUEBA] Pedido registrado para la Mesa ${orderData.mesa}`);
+    showToast(`Pedido enviado para la Mesa ${orderData.mesa}`);
     clearCart();
     closeModal();
   } finally {
@@ -808,7 +799,7 @@ function showPostOrderScreen(pedido) {
   const screen = document.getElementById('postOrderScreen');
   screen.classList.add('active');
 
-  document.getElementById('postOrderMesa').textContent = `Mesa ${pedido.mesa || '?'}`;
+  document.getElementById('postOrderMesa').textContent = pedido.mesa || '?';
 
   const total = pedido.total || 0;
   document.getElementById('postOrderTotal').textContent = `$${total.toFixed(2)}`;
@@ -821,22 +812,10 @@ function showPostOrderScreen(pedido) {
     </div>
   `).join('');
 
-  if (pedido.estado === 'programado' && pedido.fechaProgramada) {
-    document.getElementById('postOrderTiempo').textContent = `📅 ${new Date(pedido.fechaProgramada).toLocaleString('es-AR')}`;
-    document.getElementById('postOrderTracker').innerHTML = `
-      <div style="text-align:center; padding:20px 0;">
-        <div style="font-size:2.5rem; margin-bottom:8px;">📅</div>
-        <p style="color:#f97316; font-size:1.1rem; font-weight:700;">Pedido Programado</p>
-        <p style="color:#888; font-size:0.85rem; margin-top:4px;">Se enviará a cocina automáticamente</p>
-      </div>`;
-    document.getElementById('postOrderStatusText').textContent = 'Programado';
-    document.getElementById('postOrderStatusText').style.color = '#f97316';
-  } else {
-    if (pedido.tiempoEstimado) {
-      document.getElementById('postOrderTiempo').textContent = `⏱ ~${pedido.tiempoEstimado} min`;
-    }
-    updatePostOrderTracker(pedido.estado || 'pendiente');
+  if (pedido.tiempoEstimado) {
+    document.getElementById('postOrderTiempo').textContent = `⏱ ~${pedido.tiempoEstimado} min`;
   }
+  updatePostOrderTracker(pedido.estado || 'pendiente');
 
   if (!postOrderSocket) {
     postOrderSocket = io();
