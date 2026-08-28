@@ -2,33 +2,34 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="theme-color" content="#0f0f1a">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Mozo — El Patio</title>
   <link rel="stylesheet" href="/src/styles/theme.css">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #0f0f1a; color: #fff; min-height: 100vh; min-height: 100dvh; overflow-x: hidden; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #0f0f1a; color: #fff; min-height: 100vh; min-height: 100dvh; overflow-x: hidden; -webkit-font-smoothing: antialiased; }
 
     /* LOGIN */
-    .login-box { display: flex; justify-content: center; align-items: center; min-height: 100vh; min-height: 100dvh; padding: 20px; }
+    .login-box { display: flex; justify-content: center; align-items: center; min-height: 100vh; min-height: 100dvh; padding: 20px; padding-top: max(20px, env(safe-area-inset-top)); padding-bottom: max(20px, env(safe-area-inset-bottom)); }
     .login-card { background: #1e1e2e; border-radius: 20px; padding: 32px 24px; max-width: 380px; width: 100%; text-align: center; }
     .login-card .logo { font-size: 3rem; margin-bottom: 8px; }
     .login-card h2 { font-size: 1.2rem; color: #22c55e; margin-bottom: 20px; }
-    .login-card input { width: 100%; padding: 14px; border-radius: 12px; border: 1px solid #333; background: #2a2a3e; color: #fff; font-size: 1rem; margin-bottom: 12px; outline: none; }
+    .login-card input { width: 100%; padding: 14px; border-radius: 12px; border: 1px solid #333; background: #2a2a3e; color: #fff; font-size: 1rem; margin-bottom: 12px; outline: none; -webkit-appearance: none; }
     .login-card input:focus { border-color: #22c55e; }
-    .login-card button { width: 100%; padding: 14px; border-radius: 12px; border: none; font-weight: 700; font-size: 1.05rem; cursor: pointer; background: #22c55e; color: #fff; }
+    .login-card button { width: 100%; padding: 14px; border-radius: 12px; border: none; font-weight: 700; font-size: 1.05rem; cursor: pointer; background: #22c55e; color: #fff; min-height: 48px; }
     .login-card button:active { transform: scale(0.98); }
     .login-error { color: #ef4444; font-size: 0.85rem; margin-top: 10px; display: none; }
 
     /* ESPERANDO TURNO */
-    .waiting-screen { display: none; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; min-height: 100dvh; padding: 32px; text-align: center; }
+    .waiting-screen { display: none; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; min-height: 100dvh; padding: 32px; padding-top: max(32px, env(safe-area-inset-top)); padding-bottom: max(32px, env(safe-area-inset-bottom)); text-align: center; }
     .waiting-screen .icon { font-size: 4rem; margin-bottom: 16px; animation: pulse 2s ease-in-out infinite; }
     .waiting-screen h2 { font-size: 1.3rem; color: #f97316; margin-bottom: 8px; }
     .waiting-screen p { color: #888; font-size: 0.9rem; line-height: 1.5; }
-    .waiting-screen button { margin-top: 20px; padding: 12px 24px; border-radius: 12px; border: 1px solid #333; background: transparent; color: #888; font-size: 0.9rem; cursor: pointer; }
+    .waiting-screen button { margin-top: 20px; padding: 12px 24px; border-radius: 12px; border: 1px solid #333; background: transparent; color: #888; font-size: 0.9rem; cursor: pointer; min-height: 48px; }
 
     @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
 
@@ -36,51 +37,52 @@
     #appMain { display: none; flex-direction: column; min-height: 100vh; min-height: 100dvh; }
 
     /* HEADER */
-    .header { background: #1a1a24; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #27272a; position: sticky; top: 0; z-index: 100; }
-    .header-left { display: flex; align-items: center; gap: 10px; }
-    .header-left .avatar { width: 36px; height: 36px; border-radius: 50%; background: #22c55e; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.9rem; }
-    .header-left .name { font-weight: 600; font-size: 1rem; }
-    .header-left .turno-badge { background: #22c55e22; color: #22c55e; font-size: 0.7rem; padding: 2px 8px; border-radius: 10px; font-weight: 600; }
-    .btn-logout { background: transparent; color: #666; border: 1px solid #333; padding: 8px 14px; border-radius: 8px; font-size: 0.85rem; cursor: pointer; }
+    .header { background: #1a1a24; padding: 12px 16px; padding-top: max(12px, env(safe-area-inset-top)); display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #27272a; position: sticky; top: 0; z-index: 100; }
+    .header-left { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; }
+    .header-left .avatar { width: 36px; height: 36px; border-radius: 50%; background: #22c55e; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.9rem; flex-shrink: 0; }
+    .header-left .name { font-weight: 600; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .header-left .turno-badge { background: #22c55e22; color: #22c55e; font-size: 0.65rem; padding: 2px 6px; border-radius: 10px; font-weight: 600; white-space: nowrap; }
+    .btn-logout { background: transparent; color: #666; border: 1px solid #333; padding: 8px 12px; border-radius: 8px; font-size: 0.8rem; cursor: pointer; flex-shrink: 0; }
 
     /* TABS */
-    .tabs-bar { display: flex; background: #1a1a24; border-bottom: 1px solid #27272a; }
-    .tab-btn { flex: 1; padding: 14px 8px; text-align: center; background: transparent; color: #666; border: none; font-size: 0.9rem; font-weight: 500; cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.2s; }
+    .tabs-bar { display: flex; background: #1a1a24; border-bottom: 1px solid #27272a; position: sticky; top: 60px; z-index: 99; }
+    .tab-btn { flex: 1; padding: 14px 8px; text-align: center; background: transparent; color: #666; border: none; font-size: 0.9rem; font-weight: 500; cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.2s; min-height: 48px; }
     .tab-btn.active { color: #22c55e; border-bottom-color: #22c55e; font-weight: 700; }
     .tab-btn .badge { background: #ef4444; color: #fff; font-size: 0.65rem; padding: 1px 6px; border-radius: 10px; margin-left: 4px; vertical-align: top; }
 
     /* SECTIONS */
-    .section { display: none; padding: 16px; flex: 1; padding-bottom: 80px; }
+    .section { display: none; padding: 16px; padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px)); flex: 1; }
     .section.active { display: block; }
 
     /* CARDS */
     .order-card { background: #1e1e2e; border-radius: 14px; margin-bottom: 12px; overflow: hidden; border-left: 4px solid #f59e0b; }
     .order-card.pendiente { border-left-color: #f59e0b; }
     .order-card.en_preparacion { border-left-color: #3b82f6; }
-    .order-card-header { padding: 14px 16px 8px; display: flex; justify-content: space-between; align-items: center; }
-    .order-mesa { font-size: 1.1rem; font-weight: 800; color: #f97316; }
-    .order-status { font-size: 0.75rem; padding: 4px 10px; border-radius: 20px; font-weight: 600; }
+    .order-card-header { padding: 14px 16px 8px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .order-mesa { font-size: 1.1rem; font-weight: 800; color: #f97316; white-space: nowrap; }
+    .order-status { font-size: 0.7rem; padding: 4px 8px; border-radius: 20px; font-weight: 600; white-space: nowrap; flex-shrink: 0; }
     .order-status.pendiente { background: #f59e0b22; color: #f59e0b; }
     .order-status.en_preparacion { background: #3b82f622; color: #3b82f6; }
     .order-time { color: #666; font-size: 0.75rem; padding: 0 16px 4px; }
     .order-items { padding: 8px 16px; }
-    .order-item { display: flex; justify-content: space-between; padding: 6px 0; font-size: 0.88rem; color: #ccc; border-bottom: 1px solid #27272a; }
+    .order-item { padding: 6px 0; font-size: 0.88rem; color: #ccc; border-bottom: 1px solid #27272a; }
     .order-item:last-child { border-bottom: none; }
-    .order-item-qty { color: #f97316; font-weight: 700; margin-right: 8px; }
-    .order-item-notes { color: #888; font-size: 0.75rem; font-style: italic; }
+    .order-item-name { word-break: break-word; }
+    .order-item-qty { color: #f97316; font-weight: 700; margin-right: 6px; }
+    .order-item-notes { color: #888; font-size: 0.75rem; font-style: italic; margin-top: 2px; word-break: break-word; }
     .order-footer { padding: 10px 16px 14px; display: flex; gap: 8px; }
-    .order-footer button { flex: 1; padding: 12px; border: none; border-radius: 10px; font-weight: 700; font-size: 0.85rem; cursor: pointer; }
+    .order-footer button { flex: 1; padding: 14px; border: none; border-radius: 10px; font-weight: 700; font-size: 0.9rem; cursor: pointer; min-height: 48px; }
     .order-footer button:active { transform: scale(0.97); }
     .btn-next-state { background: #22c55e; color: #fff; }
     .btn-call-kitchen { background: #f9731622; color: #f97316; border: 1px solid #f9731633 !important; }
 
     /* CALL CARDS */
-    .call-card { background: #1e1e2e; border-radius: 14px; padding: 16px; margin-bottom: 10px; border-left: 4px solid #ef4444; display: flex; justify-content: space-between; align-items: center; }
-    .call-info { flex: 1; }
+    .call-card { background: #1e1e2e; border-radius: 14px; padding: 16px; margin-bottom: 10px; border-left: 4px solid #ef4444; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    .call-info { flex: 1; min-width: 0; }
     .call-mesa { font-size: 1rem; font-weight: 700; }
-    .call-tipo { color: #aaa; font-size: 0.85rem; }
+    .call-tipo { color: #aaa; font-size: 0.85rem; word-break: break-word; }
     .call-time { color: #666; font-size: 0.75rem; }
-    .btn-attend { background: #22c55e; color: #fff; border: none; padding: 12px 20px; border-radius: 10px; font-weight: 700; font-size: 0.85rem; cursor: pointer; white-space: nowrap; }
+    .btn-attend { background: #22c55e; color: #fff; border: none; padding: 14px 20px; border-radius: 10px; font-weight: 700; font-size: 0.9rem; cursor: pointer; white-space: nowrap; flex-shrink: 0; min-height: 48px; }
     .btn-attend:active { transform: scale(0.95); }
 
     /* EMPTY */
@@ -88,11 +90,34 @@
     .empty .icon { font-size: 3rem; margin-bottom: 12px; }
 
     /* SONIDO */
-    .sound-toggle { position: fixed; bottom: 16px; right: 16px; z-index: 50; background: #2a2a3e; border: 1px solid #333; border-radius: 50%; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; cursor: pointer; }
+    .sound-toggle { position: fixed; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); right: 16px; z-index: 50; background: #2a2a3e; border: 1px solid #333; border-radius: 50%; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 
     /* TOAST */
-    .toast { position: fixed; bottom: 70px; left: 50%; transform: translateX(-50%); background: #22c55e; color: #fff; padding: 12px 20px; border-radius: 12px; font-weight: 600; font-size: 0.9rem; z-index: 200; opacity: 0; transition: opacity 0.3s; pointer-events: none; box-shadow: 0 4px 20px rgba(34,197,94,0.3); }
+    .toast { position: fixed; bottom: calc(70px + env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%); background: #22c55e; color: #fff; padding: 12px 20px; border-radius: 12px; font-weight: 600; font-size: 0.9rem; z-index: 200; opacity: 0; transition: opacity 0.3s; pointer-events: none; box-shadow: 0 4px 20px rgba(34,197,94,0.3); max-width: calc(100vw - 32px); text-align: center; }
     .toast.show { opacity: 1; }
+
+    /* SMALL SCREENS */
+    @media (max-width: 360px) {
+      .header { padding: 10px 12px; }
+      .header-left .avatar { width: 32px; height: 32px; font-size: 0.8rem; }
+      .header-left .name { font-size: 0.85rem; }
+      .header-left .turno-badge { font-size: 0.6rem; padding: 2px 5px; }
+      .btn-logout { padding: 6px 10px; font-size: 0.75rem; }
+      .tab-btn { padding: 12px 6px; font-size: 0.85rem; }
+      .order-card-header { padding: 12px 14px 6px; }
+      .order-mesa { font-size: 1rem; }
+      .order-footer button { padding: 12px; font-size: 0.85rem; }
+      .call-card { padding: 14px; }
+      .btn-attend { padding: 12px 16px; font-size: 0.85rem; }
+    }
+
+    /* LANDSCAPE */
+    @media (max-height: 500px) and (orientation: landscape) {
+      .header { padding: 8px 16px; }
+      .header-left .avatar { width: 28px; height: 28px; font-size: 0.75rem; }
+      .tab-btn { padding: 10px 8px; }
+      .section { padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px)); }
+    }
   </style>
 </head>
 <body>
@@ -142,6 +167,10 @@
     </div>
 
     <div id="secPedidos" class="section active">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+        <h2 style="font-size:1.1rem; color:#fff;">📋 Mis Pedidos</h2>
+        <button onclick="openNewOrder()" style="background:#22c55e; color:#fff; border:none; padding:10px 16px; border-radius:10px; font-weight:700; font-size:0.85rem; cursor:pointer; min-height:44px;">+ Nuevo Pedido</button>
+      </div>
       <div id="pedidosGrid"></div>
       <div id="pedidosEmpty" class="empty">
         <div class="icon">📋</div>
@@ -154,6 +183,35 @@
       <div id="llamadasEmpty" class="empty">
         <div class="icon">🔔</div>
         <p>No hay llamadas pendientes</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL NUEVO PEDIDO -->
+  <div id="newOrderModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:300; overflow-y:auto; padding:16px; padding-top:max(16px, env(safe-area-inset-top)); padding-bottom:max(16px, env(safe-area-inset-bottom));">
+    <div style="max-width:420px; margin:0 auto; background:#1e1e2e; border-radius:16px; overflow:hidden;">
+      <div style="display:flex; justify-content:space-between; align-items:center; padding:16px; border-bottom:1px solid #27272a;">
+        <h3 style="color:#22c55e; font-size:1.1rem;">Nuevo Pedido</h3>
+        <button onclick="closeNewOrder()" style="background:transparent; color:#888; border:none; font-size:1.5rem; cursor:pointer; padding:4px 8px;">✕</button>
+      </div>
+      <div style="padding:16px;">
+        <label style="color:#888; font-size:0.8rem; display:block; margin-bottom:6px;">Mesa</label>
+        <select id="newOrderMesa" style="width:100%; padding:12px; border-radius:10px; border:1px solid #444; background:#2a2a3e; color:#fff; font-size:1rem; margin-bottom:16px;"></select>
+
+        <label style="color:#888; font-size:0.8rem; display:block; margin-bottom:6px;">Categoría</label>
+        <div id="newOrderCats" style="display:flex; gap:6px; overflow-x:auto; margin-bottom:12px; padding-bottom:4px;"></div>
+
+        <div id="newOrderItems" style="display:flex; flex-direction:column; gap:8px; max-height:40vh; overflow-y:auto;"></div>
+
+        <div style="border-top:1px solid #27272a; margin-top:16px; padding-top:16px;">
+          <p style="color:#888; font-size:0.8rem; margin-bottom:8px;">Tu pedido:</p>
+          <div id="newOrderCart" style="max-height:20vh; overflow-y:auto; margin-bottom:12px;"></div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+            <span style="color:#888; font-weight:600;">Total:</span>
+            <span id="newOrderTotal" style="color:#22c55e; font-weight:800; font-size:1.2rem;">$0</span>
+          </div>
+          <button onclick="sendNewOrder()" id="newOrderSendBtn" style="width:100%; background:#22c55e; color:#fff; border:none; padding:14px; border-radius:12px; font-weight:700; font-size:1rem; cursor:pointer; min-height:48px;">Enviar a Cocina</button>
+        </div>
       </div>
     </div>
   </div>
@@ -185,6 +243,34 @@
       try { document.getElementById('notifSound').play().catch(()=>{}); } catch(e){}
     }
 
+    // --- PUSH NOTIFICATIONS ---
+    async function subscribeToPush() {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+      try {
+        const reg = await navigator.serviceWorker.register('/push-sw.js');
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') return;
+        const res = await fetch('/api/push/vapid-key');
+        const { publicKey } = await res.json();
+        const sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(publicKey)
+        });
+        await fetch('/api/push/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(sub)
+        });
+      } catch (e) { console.log('Push subscribe error:', e); }
+    }
+
+    function urlBase64ToUint8Array(base64String) {
+      const padding = '='.repeat((4 - base64String.length % 4) % 4);
+      const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+      const rawData = atob(base64);
+      return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
+    }
+
     // --- LOGIN ---
     async function doLogin() {
       const usuario = document.getElementById('loginUsuario').value.trim();
@@ -198,7 +284,7 @@
         });
         if (res.ok) {
           const data = await res.json();
-          if (!['admin','mozo','cajero'].includes(data.rol)) {
+          if (!['admin','mozo','cajero','cocina'].includes(data.rol)) {
             document.getElementById('loginError').textContent = 'Sin acceso de mozo';
             document.getElementById('loginError').style.display = 'block';
             return;
@@ -212,6 +298,7 @@
           document.getElementById('userName').textContent = data.nombre || data.usuario;
           document.getElementById('userAvatar').textContent = (data.nombre || data.usuario).charAt(0).toUpperCase();
           checkMiTurno();
+          subscribeToPush();
         } else {
           document.getElementById('loginError').textContent = 'Credenciales incorrectas';
           document.getElementById('loginError').style.display = 'block';
@@ -320,7 +407,7 @@
             const nextLabel = { pendiente: '🔨 Preparar', entregar: '✅ Entregar' };
             const items = (p.items || []).map(i =>
               `<div class="order-item">
-                <div><span class="order-item-qty">×${i.cantidad}</span>${escHtml(i.nombre)}</div>
+                <div class="order-item-name"><span class="order-item-qty">×${i.cantidad}</span>${escHtml(i.nombre)}</div>
                 ${i.notas ? `<div class="order-item-notes">📝 ${escHtml(i.notas)}</div>` : ''}
               </div>`
             ).join('');
@@ -386,10 +473,146 @@
     async function attendCall(id) {
       await fetch(`/api/mozo/${id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', 'x-auth-token': authToken }
+        headers: { 'Content-Type': 'application/json', 'x-auth-token': authToken },
+        body: '{}'
       });
       if (navigator.vibrate) navigator.vibrate(50);
       loadData();
+    }
+
+    // --- NUEVO PEDIDO ---
+    let menuCache = [];
+    let newOrderCart = [];
+    let newOrderCatFilter = 'Todos';
+
+    async function loadMenu() {
+      try {
+        const res = await fetch('/api/menu');
+        const data = await res.json();
+        menuCache = data.productos || data || [];
+      } catch (e) { menuCache = []; }
+    }
+
+    async function loadMesas() {
+      try {
+        const res = await fetch('/api/mesas');
+        const data = await res.json();
+        const select = document.getElementById('newOrderMesa');
+        select.innerHTML = data.map(m => `<option value="${escHtml(m.nombre || m)}">${escHtml(m.nombre || m)}</option>`).join('');
+      } catch (e) {}
+    }
+
+    async function openNewOrder() {
+      newOrderCart = [];
+      await Promise.all([loadMenu(), loadMesas()]);
+      document.getElementById('newOrderModal').style.display = 'block';
+      renderNewOrderCats();
+      renderNewOrderItems();
+      renderNewOrderCart();
+    }
+
+    function closeNewOrder() {
+      document.getElementById('newOrderModal').style.display = 'none';
+    }
+
+    function renderNewOrderCats() {
+      const cats = ['Todos', ...new Set(menuCache.map(p => p.categoria || 'Otros'))];
+      const container = document.getElementById('newOrderCats');
+      container.innerHTML = cats.map(c => `
+        <button onclick="filterNewOrderCat('${escHtml(c)}')" style="background:${c === newOrderCatFilter ? '#22c55e' : '#27272a'}; color:${c === newOrderCatFilter ? '#fff' : '#888'}; border:none; padding:8px 14px; border-radius:20px; font-size:0.8rem; font-weight:600; cursor:pointer; white-space:nowrap; flex-shrink:0;">${escHtml(c)}</button>
+      `).join('');
+    }
+
+    function filterNewOrderCat(cat) {
+      newOrderCatFilter = cat;
+      renderNewOrderCats();
+      renderNewOrderItems();
+    }
+
+    function renderNewOrderItems() {
+      const filtered = newOrderCatFilter === 'Todos' ? menuCache : menuCache.filter(p => (p.categoria || 'Otros') === newOrderCatFilter);
+      const container = document.getElementById('newOrderItems');
+      container.innerHTML = filtered.map(p => `
+        <div style="display:flex; justify-content:space-between; align-items:center; background:#27272a; border-radius:10px; padding:12px;">
+          <div style="min-width:0; flex:1;">
+            <p style="color:#fff; font-size:0.9rem; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escHtml(p.nombre)}</p>
+            <p style="color:#22c55e; font-size:0.85rem; font-weight:700;">$${Number(p.precio).toFixed(2)}</p>
+          </div>
+          <button onclick="addToNewOrder('${escHtml(p.id)}', '${escHtml(p.nombre)}', ${p.precio})" style="background:#22c55e; color:#fff; border:none; width:36px; height:36px; border-radius:50%; font-size:1.2rem; cursor:pointer; flex-shrink:0; margin-left:8px;">+</button>
+        </div>
+      `).join('') || '<p style="color:#888; text-align:center; padding:20px;">Sin productos</p>';
+    }
+
+    function addToNewOrder(id, nombre, precio) {
+      const existing = newOrderCart.find(i => i.id === id);
+      if (existing) {
+        existing.cantidad++;
+      } else {
+        newOrderCart.push({ id, nombre, precioUnitario: precio, cantidad: 1 });
+      }
+      renderNewOrderCart();
+    }
+
+    function removeNewOrderItem(id) {
+      newOrderCart = newOrderCart.filter(i => i.id !== id);
+      renderNewOrderCart();
+    }
+
+    function changeNewOrderQty(id, delta) {
+      const item = newOrderCart.find(i => i.id === id);
+      if (!item) return;
+      item.cantidad += delta;
+      if (item.cantidad <= 0) newOrderCart = newOrderCart.filter(i => i.id !== id);
+      renderNewOrderCart();
+    }
+
+    function renderNewOrderCart() {
+      const container = document.getElementById('newOrderCart');
+      const total = newOrderCart.reduce((s, i) => s + i.precioUnitario * i.cantidad, 0);
+      document.getElementById('newOrderTotal').textContent = `$${total.toFixed(2)}`;
+      document.getElementById('newOrderSendBtn').disabled = newOrderCart.length === 0;
+      document.getElementById('newOrderSendBtn').style.opacity = newOrderCart.length === 0 ? '0.5' : '1';
+      container.innerHTML = newOrderCart.map(i => `
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 0; border-bottom:1px solid #27272a;">
+          <span style="color:#ccc; font-size:0.85rem; flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escHtml(i.nombre)}</span>
+          <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
+            <button onclick="changeNewOrderQty('${i.id}', -1)" style="background:#333; color:#fff; border:none; width:26px; height:26px; border-radius:50%; cursor:pointer; font-size:0.9rem;">-</button>
+            <span style="color:#fff; font-weight:700; min-width:20px; text-align:center;">${i.cantidad}</span>
+            <button onclick="changeNewOrderQty('${i.id}', 1)" style="background:#333; color:#fff; border:none; width:26px; height:26px; border-radius:50%; cursor:pointer; font-size:0.9rem;">+</button>
+          </div>
+        </div>
+      `).join('') || '<p style="color:#666; font-size:0.8rem; text-align:center;">Vacío</p>';
+    }
+
+    async function sendNewOrder() {
+      if (!newOrderCart.length) return;
+      const btn = document.getElementById('newOrderSendBtn');
+      btn.disabled = true;
+      btn.textContent = '⏳ Enviando...';
+      const mesa = document.getElementById('newOrderMesa').value;
+      const items = newOrderCart.map(i => ({
+        id: i.id, nombre: i.nombre, cantidad: i.cantidad,
+        precioUnitario: i.precioUnitario, subtotal: i.precioUnitario * i.cantidad
+      }));
+      try {
+        const res = await fetch('/api/pedidos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-auth-token': authToken },
+          body: JSON.stringify({ mesa, items })
+        });
+        if (res.ok) {
+          showToast('✅ Pedido enviado a cocina');
+          closeNewOrder();
+          loadData();
+        } else {
+          showToast('❌ Error al enviar');
+        }
+      } catch (e) {
+        showToast('❌ Error de conexión');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Enviar a Cocina';
+      }
     }
 
     // --- INIT ---

@@ -200,6 +200,9 @@
         <button id="navTurnos" class="nav-btn" onclick="switchTab('turnos')">
           <span>🕐</span> Turnos
         </button>
+        <button id="navListaEspera" class="nav-btn" onclick="switchTab('listaespera')">
+          <span>⏳</span> Lista Espera
+        </button>
         <button id="navTicket" class="nav-btn" onclick="switchTab('ticket')">
           <span>🖨️</span> Config Ticket
         </button>
@@ -215,6 +218,7 @@
       <div class="top-header">
         <h1 class="page-title">PANEL DE ADMINISTRACIÓN -</h1>
         <div style="display: flex; gap: 12px; align-items: center;">
+          <span id="adminTurnoIndicator" style="font-size: 0.85rem; color: #3b82f6; background: #1e3a5f; padding: 4px 12px; border-radius: 20px; font-weight: 600; display: none;">👥 0 en turno</span>
           <button id="btnSoundToggle" onclick="toggleAudio()" style="background: #15803d; border: 1px solid #27272a; color: #f4f4f5; padding: 8px 14px; border-radius: 20px; cursor: pointer; font-size: 0.85rem; font-weight: 600;">
             🔊 Sonido: On
           </button>
@@ -235,6 +239,44 @@
 
         <div id="dashboardStockAlert" style="display:none; background:#451a1a; border:1px solid #991b1b; border-radius:10px; padding:12px 16px; margin-bottom:14px; cursor:pointer;" onclick="switchTab('insumos')">
           <span style="color:#f87171; font-weight:600;">⚠️ <span id="dashboardStockCount">0</span> insumo(s) con stock bajo — <span style="text-decoration:underline;">Ver Insumos →</span></span>
+        </div>
+
+        <!-- MÉTRICAS EN TIEMPO REAL -->
+        <div id="metricasWidget" style="display:none; background:#1e1e2e; border-radius:12px; padding:16px 20px; margin-bottom:16px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <h3 style="color:#f97316; font-size:1rem;">📊 Métricas de Hoy</h3>
+            <span id="metricasHora" style="color:#888; font-size:0.75rem;"></span>
+          </div>
+          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:12px;">
+            <div style="background:#27272a; border-radius:10px; padding:12px;">
+              <p style="color:#888; font-size:0.75rem; margin-bottom:4px;">Ventas Hoy</p>
+              <p id="metricasVentas" style="color:#22c55e; font-size:1.3rem; font-weight:800;">$0</p>
+            </div>
+            <div style="background:#27272a; border-radius:10px; padding:12px;">
+              <p style="color:#888; font-size:0.75rem; margin-bottom:4px;">Pedidos Hoy</p>
+              <p id="metricasPedidos" style="color:#3b82f6; font-size:1.3rem; font-weight:800;">0</p>
+            </div>
+            <div style="background:#27272a; border-radius:10px; padding:12px;">
+              <p style="color:#888; font-size:0.75rem; margin-bottom:4px;">Ticket Promedio</p>
+              <p id="metricasTicket" style="color:#f97316; font-size:1.3rem; font-weight:800;">$0</p>
+            </div>
+            <div style="background:#27272a; border-radius:10px; padding:12px;">
+              <p style="color:#888; font-size:0.75rem; margin-bottom:4px;">Ocupación Mesas</p>
+              <p id="metricasOcupacion" style="color:#eab308; font-size:1.3rem; font-weight:800;">0%</p>
+            </div>
+            <div style="background:#27272a; border-radius:10px; padding:12px;">
+              <p style="color:#888; font-size:0.75rem; margin-bottom:4px;">Activos / Preparando</p>
+              <p id="metricasActivos" style="color:#a855f7; font-size:1.3rem; font-weight:800;">0 / 0</p>
+            </div>
+            <div style="background:#27272a; border-radius:10px; padding:12px;">
+              <p style="color:#888; font-size:0.75rem; margin-bottom:4px;">Tiempo Prep. Prom.</p>
+              <p id="metricasTiempo" style="color:#f97316; font-size:1.3rem; font-weight:800;">0 min</p>
+            </div>
+          </div>
+          <div style="margin-top:12px;">
+            <p style="color:#888; font-size:0.75rem; margin-bottom:6px;">🏆 Top Platos Hoy</p>
+            <div id="metricasTopPlatos" style="display:flex; gap:8px; overflow-x:auto; padding-bottom:4px;"></div>
+          </div>
         </div>
 
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 8px;">
@@ -405,6 +447,21 @@
             <div id="tablaMargen"></div>
           </div>
         </div>
+
+        <!-- Desglose por Medio de Pago -->
+        <div style="background:#1e1e2e; border-radius:12px; padding:20px;">
+          <h3 style="color:#f97316; font-size:1rem; margin-bottom:12px;">💳 Desglose por Medio de Pago</h3>
+          <div id="tablaPagos"></div>
+        </div>
+      </div>
+
+      <!-- VISTA: LISTA DE ESPERA -->
+      <div id="viewListaEspera" style="display: none; flex-direction: column; gap: 20px;">
+        <h2 style="font-size: 1.4rem; color: #fff;">⏳ Lista de Espera</h2>
+        <div style="background:#1e1e2e; border-radius:12px; padding:20px;">
+          <p style="color:#888; font-size:0.85rem; margin-bottom:12px;">Personas esperando mesa. Avisá cuando haya una disponible.</p>
+          <div id="listaEsperaAdmin"></div>
+        </div>
       </div>
 
       <!-- VISTA: CONFIG TICKET -->
@@ -490,6 +547,16 @@
             <p id="arcaTestResult" style="display:none; padding:8px 12px; border-radius:6px; font-size:0.85rem; margin-top:4px;"></p>
           </div>
         </div>
+
+        <div style="background: #1e1e2e; border-radius: 12px; padding: 24px; max-width: 500px;">
+          <h3 style="color: #f97316; font-size: 1rem; margin-bottom: 14px;">💳 Medios de Pago</h3>
+          <p style="color: #888; font-size: 0.8rem; margin-bottom: 10px;">Configurá los medios de pago que acepta tu local. Aparecen al cobrar una mesa.</p>
+          <div style="display:flex; gap:8px; margin-bottom:12px;">
+            <input id="nuevoMedioPago" type="text" placeholder="Ej: Efectivo, POSNET, QR..." style="flex:1; padding:10px; border-radius:8px; border:1px solid #444; background:#2a2a3e; color:#fff;">
+            <button onclick="agregarMedioPago()" style="background:#22c55e; color:#fff; border:none; padding:10px 14px; border-radius:8px; font-weight:600; cursor:pointer;">➕</button>
+          </div>
+          <div id="mediosPagoList" style="display:flex; flex-direction:column; gap:6px;"></div>
+        </div>
       </div>
 
       <!-- VISTA: INSUMOS Y STOCK -->
@@ -552,20 +619,39 @@
 
       <!-- VISTA: TURNOS -->
       <div id="viewTurnos" style="display: none; flex-direction: column; gap: 20px;">
-        <!-- LINK COMPARTIBLE PARA MOZOS -->
-        <div id="mozoLinkBox" style="background: linear-gradient(135deg, #1e293b, #0f172a); border: 1px solid #22c55e33; border-radius: 14px; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
-          <div>
-            <div style="color: #22c55e; font-weight: 700; font-size: 0.95rem; margin-bottom: 4px;">📱 Link de la app de Mozos</div>
-            <div id="mozoLinkText" style="color: #ccc; font-size: 0.85rem; font-family: monospace; word-break: break-all;"></div>
+        <!-- LINKS DE APPS -->
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          <div style="background: linear-gradient(135deg, #1e293b, #0f172a); border: 1px solid #22c55e33; border-radius: 14px; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <div>
+              <div style="color: #22c55e; font-weight: 700; font-size: 0.95rem; margin-bottom: 4px;">📱 Link de Mozos</div>
+              <div id="mozoLinkText" style="color: #ccc; font-size: 0.85rem; font-family: monospace; word-break: break-all;"></div>
+            </div>
+            <div style="display:flex; gap:8px; flex-shrink:0;">
+              <button onclick="copiarLink('mozo')" id="btnCopiarLink" style="background: #22c55e; color: #fff; border: none; padding: 10px 18px; border-radius: 10px; font-weight: 700; cursor: pointer; font-size: 0.85rem; white-space: nowrap;">📋 Copiar</button>
+            </div>
           </div>
-          <div style="display:flex; gap:8px; flex-shrink:0;">
-            <button onclick="copiarMozoLink()" id="btnCopiarLink" style="background: #22c55e; color: #fff; border: none; padding: 10px 18px; border-radius: 10px; font-weight: 700; cursor: pointer; font-size: 0.85rem; white-space: nowrap;">📋 Copiar</button>
-            <button onclick="compartirMozoLink()" id="btnCompartirLink" style="background: #3b82f6; color: #fff; border: none; padding: 10px 18px; border-radius: 10px; font-weight: 700; cursor: pointer; font-size: 0.85rem; white-space: nowrap; display:none;">📲 Compartir</button>
+          <div style="background: linear-gradient(135deg, #1e293b, #0f172a); border: 1px solid #f9731633; border-radius: 14px; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <div>
+              <div style="color: #f97316; font-weight: 700; font-size: 0.95rem; margin-bottom: 4px;">🍳 Link de Cocina</div>
+              <div id="cocinaLinkText" style="color: #ccc; font-size: 0.85rem; font-family: monospace; word-break: break-all;"></div>
+            </div>
+            <div style="display:flex; gap:8px; flex-shrink:0;">
+              <button onclick="copiarLink('cocina')" id="btnCopiarCocina" style="background: #f97316; color: #fff; border: none; padding: 10px 18px; border-radius: 10px; font-weight: 700; cursor: pointer; font-size: 0.85rem; white-space: nowrap;">📋 Copiar</button>
+            </div>
+          </div>
+          <div style="background: linear-gradient(135deg, #1e293b, #0f172a); border: 1px solid #3b82f633; border-radius: 14px; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <div>
+              <div style="color: #3b82f6; font-weight: 700; font-size: 0.95rem; margin-bottom: 4px;">🖥️ Link de Admin (otras PCs)</div>
+              <div id="adminLinkText" style="color: #ccc; font-size: 0.85rem; font-family: monospace; word-break: break-all;"></div>
+            </div>
+            <div style="display:flex; gap:8px; flex-shrink:0;">
+              <button onclick="copiarLink('admin')" id="btnCopiarAdmin" style="background: #3b82f6; color: #fff; border: none; padding: 10px 18px; border-radius: 10px; font-weight: 700; cursor: pointer; font-size: 0.85rem; white-space: nowrap;">📋 Copiar</button>
+            </div>
           </div>
         </div>
         <!-- TURNOS DE MOZOS (en tiempo real) -->
         <div>
-          <h2 style="font-size: 1.2rem; color: #22c55e; margin-bottom: 12px;">🍽️ Mozos en Turno</h2>
+          <h2 style="font-size: 1.2rem; color: #22c55e; margin-bottom: 12px;">👥 Personal en Turno</h2>
           <div id="mozosTurnoGrid" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:12px;"></div>
         </div>
         <hr style="border-color:#27272a;">
@@ -797,6 +883,12 @@
           <input type="hidden" id="cobroMesaNombre">
           <p id="cobroTotal" style="color:#22c55e; font-size:1.6rem; font-weight:800; text-align:center; margin-bottom:16px;"></p>
 
+          <div style="margin-bottom:14px;">
+            <label style="color:#aaa; font-size:0.85rem; display:block; margin-bottom:6px;">Medio de Pago</label>
+            <select id="cobroMedioPago" style="width:100%; padding:10px; border-radius:8px; border:1px solid #444; background:#2a2a3e; color:#fff; font-size:0.95rem;">
+            </select>
+          </div>
+
           <div id="cobroFacturaOption" style="display:none; background:#18181b; border:1px solid #27272a; border-radius:10px; padding:14px; margin-bottom:14px;">
             <label style="display:flex; align-items:center; gap:10px; cursor:pointer; color:#fff; font-weight:600;">
               <input type="checkbox" id="cobroEmitirFactura" onchange="toggleCobroFactura()" style="accent-color:#22c55e; width:18px; height:18px;">
@@ -842,6 +934,36 @@
 
   <!-- CONTENEDOR OCULTO PARA IMPRESIÓN MÚLTIPLE DE QRS -->
   <div id="printContainer" style="display: none;"></div>
+
+  <!-- MODAL EDITAR INICIO DE TURNO -->
+  <div id="modalEditarTurno" class="modal-overlay" onclick="if(event.target===this)cerrarModalEditarTurno()">
+    <div class="modal-content" style="max-width: 420px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+        <h3 style="color: #3b82f6;">✏️ Editar Horario de Turno</h3>
+        <button onclick="cerrarModalEditarTurno()" style="background:none; border:none; color:#888; font-size:1.3rem; cursor:pointer;">✕</button>
+      </div>
+      <p id="editarTurnoNombre" style="color: #ccc; margin-bottom: 16px; font-size: 0.95rem;"></p>
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <div>
+          <label style="color: #aaa; font-size: 0.85rem;">Fecha Inicio</label>
+          <input type="date" id="editarTurnoFecha" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #444; background: #2a2a3e; color: #fff; box-sizing: border-box;">
+        </div>
+        <div>
+          <label style="color: #aaa; font-size: 0.85rem;">Hora Inicio</label>
+          <input type="time" id="editarTurnoHora" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #444; background: #2a2a3e; color: #fff; box-sizing: border-box;">
+        </div>
+        <hr style="border-color:#27272a; margin: 4px 0;">
+        <div>
+          <label style="color: #aaa; font-size: 0.85rem;">Hora Fin (opcional — dejar vacío si sigue activo)</label>
+          <input type="time" id="editarTurnoHoraFin" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #444; background: #2a2a3e; color: #fff; box-sizing: border-box;">
+        </div>
+      </div>
+      <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+        <button onclick="cerrarModalEditarTurno()" style="background: #27272a; color: #fff; border: none; padding: 10px 16px; border-radius: 8px; cursor: pointer;">Cancelar</button>
+        <button onclick="guardarEditarTurno()" style="background: #3b82f6; color: #fff; border: none; padding: 10px 16px; border-radius: 8px; font-weight: 600; cursor: pointer;">Guardar</button>
+      </div>
+    </div>
+  </div>
 
   <!-- MODAL GESTIONAR CATEGORÍAS -->
   <div id="modalCategorias" class="modal-overlay">
@@ -961,6 +1083,8 @@
     let authToken = localStorage.getItem('admin_token') || null;
     let currentUser = JSON.parse(localStorage.getItem('admin_user') || 'null');
 
+    function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
     const ROLES_TABS = {
       admin:  ['dashboard','menu','qrs','resenas','promos','insumos','historial','reportes','caja','turnos','ticket','usuarios'],
       cajero: ['dashboard','historial','reportes','resenas','caja','turnos'],
@@ -977,6 +1101,8 @@
         document.getElementById('loginOverlay').style.display = 'flex';
       }
     }
+
+    let currentTab = 'dashboard';
 
     function applyRolePermissions() {
       if (!currentUser) return;
@@ -1042,15 +1168,32 @@
     }
 
     checkAuth();
+    updateAdminTurnoIndicator();
 
     // Inicialización del cliente Socket.io
     const socket = io();
+
+    // --- ADMIN TURNO INDICATOR ---
+    async function updateAdminTurnoIndicator() {
+      try {
+        const res = await fetch('/api/turnos-mozos/activos', { headers: adminHeaders() });
+        const activos = await res.json();
+        const el = document.getElementById('adminTurnoIndicator');
+        if (!el) return;
+        if (activos.length) {
+          el.textContent = `👥 ${activos.length} en turno`;
+          el.style.display = 'inline';
+        } else {
+          el.style.display = 'none';
+        }
+      } catch(e) {}
+    }
+    socket.on('turno_mozo_actualizado', () => { updateAdminTurnoIndicator(); cargarMozosTurno(); });
 
     let knownOrderIds = new Set();
     let knownWaiterCallIds = new Set();
     let isFirstLoad = true;
     let audioEnabled = true;
-    let currentTab = 'dashboard';
 
     // Helper: fecha local YYYY-MM-DD (evita problemas UTC)
     function localDateStr(d) {
@@ -1182,7 +1325,7 @@
 
     function switchTab(tab) {
       currentTab = tab;
-      ['Dashboard', 'Menu', 'Qrs', 'Resenas', 'Promos', 'Insumos', 'Historial', 'Reportes', 'Caja', 'Turnos', 'Ticket', 'Usuarios'].forEach(t => {
+      ['Dashboard', 'Menu', 'Qrs', 'Resenas', 'Promos', 'Insumos', 'Historial', 'Reportes', 'Caja', 'Turnos', 'ListaEspera', 'Ticket', 'Usuarios'].forEach(t => {
         const btn = document.getElementById(`nav${t}`);
         if (btn) btn.classList.toggle('active', t.toLowerCase() === tab);
       });
@@ -1197,6 +1340,7 @@
       document.getElementById('viewReportes').style.display = tab === 'reportes' ? 'flex' : 'none';
       document.getElementById('viewCaja').style.display = tab === 'caja' ? 'flex' : 'none';
       document.getElementById('viewTurnos').style.display = tab === 'turnos' ? 'flex' : 'none';
+      document.getElementById('viewListaEspera').style.display = tab === 'listaespera' ? 'flex' : 'none';
       document.getElementById('viewTicketConfig').style.display = tab === 'ticket' ? 'flex' : 'none';
       document.getElementById('viewUsuarios').style.display = tab === 'usuarios' ? 'flex' : 'none';
 
@@ -1210,18 +1354,20 @@
       else if (tab === 'reportes') cargarReportes();
       else if (tab === 'caja') cargarCaja();
       else if (tab === 'turnos') { cargarTurnos(); cargarMozosTurno(); initMozoLink(); }
+      else if (tab === 'listaespera') renderListaEsperaView();
       else if (tab === 'ticket') cargarTicketConfig();
       else if (tab === 'usuarios') renderUsuariosView();
     }
 
     async function fetchDashboardData() {
       try {
-        const [resMesas, resPedidos, resMozo, resActivas, resAlertas] = await Promise.all([
+        const [resMesas, resPedidos, resMozo, resActivas, resAlertas, resMetricas] = await Promise.all([
           fetch('/api/mesas'),
           fetch('/api/pedidos', { headers: adminHeaders() }),
           fetch('/api/mozo'),
           fetch('/api/mesas-activas'),
-          fetch('/api/stock-alertas', { headers: adminHeaders() }).catch(() => ({ ok: false }))
+          fetch('/api/stock-alertas', { headers: adminHeaders() }).catch(() => ({ ok: false })),
+          fetch('/api/metricas', { headers: adminHeaders() }).catch(() => ({ ok: false }))
         ]);
         if (handleAuthError(resPedidos)) return;
         const serverMesas = await resMesas.json();
@@ -1255,6 +1401,26 @@
           if (selectedMesaNombre) renderDetalleMesa(selectedMesaNombre);
         }
         renderLlamadas(llamadas);
+
+        if (resMetricas.ok) {
+          const m = await resMetricas.json();
+          const widget = document.getElementById('metricasWidget');
+          widget.style.display = 'block';
+          document.getElementById('metricasHora').textContent = `Actualizado: ${new Date().toLocaleTimeString('es-AR')}`;
+          document.getElementById('metricasVentas').textContent = `$${m.totalVentasHoy.toFixed(0)}`;
+          document.getElementById('metricasPedidos').textContent = m.totalPedidosHoy;
+          document.getElementById('metricasTicket').textContent = `$${m.ticketPromedio.toFixed(0)}`;
+          document.getElementById('metricasOcupacion').textContent = `${m.ocupacionMesas}%`;
+          document.getElementById('metricasActivos').textContent = `${m.porEstado.pendiente} / ${m.porEstado.en_preparacion}`;
+          document.getElementById('metricasTiempo').textContent = m.tiempoPromPreparacion > 0 ? `${m.tiempoPromPreparacion} min` : '—';
+          const topContainer = document.getElementById('metricasTopPlatos');
+          topContainer.innerHTML = m.topPlatos.map(p => `
+            <div style="background:#27272a; border-radius:8px; padding:8px 12px; min-width:100px; text-align:center; flex-shrink:0;">
+              <p style="color:#fff; font-size:0.8rem; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100px;">${escHtml(p.nombre)}</p>
+              <p style="color:#22c55e; font-size:0.85rem; font-weight:700;">${p.cantidad}x</p>
+            </div>
+          `).join('') || '<p style="color:#888; font-size:0.8rem;">Sin datos aún</p>';
+        }
       } catch (err) { console.error(err); }
     }
 
@@ -1394,6 +1560,9 @@
         (p.mesa || 'Mesa 1').toLowerCase() === nombreMesa.toLowerCase() && !p.pagado
       );
 
+      const formAbierto = window._formAddItemAbierto;
+      if (formAbierto) saveFormAddItemVals(formAbierto);
+
       let html = `
         <div style="display:flex; gap:8px; align-items:center; margin-bottom:12px; flex-wrap:wrap;">
           <button onclick="marcarMesaActiva('${nombreMesa}')" style="background:#22c55e; color:#fff; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-size:0.8rem; font-weight:600;">🟢 Marcar Activa</button>
@@ -1426,18 +1595,18 @@
               </div>
               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
                 <span style="font-size:0.8rem; color:#a1a1aa;">
-                  ⏱ Tiempo: 
+                  ${p.estado === 'programado' && p.fechaProgramada ? `📅 ${new Date(p.fechaProgramada).toLocaleString('es-AR')}` : `⏱ Tiempo: 
                   <button onclick="cambiarTiempo('${p.id}', -5)" style="background:#333; color:#fff; border:none; width:20px; height:20px; border-radius:4px; cursor:pointer; font-size:0.7rem;">-</button>
                   <strong style="color:#f97316; margin:0 4px;" id="tiempo-${p.id}">${p.tiempoEstimado || 15}</strong> min
-                  <button onclick="cambiarTiempo('${p.id}', 5)" style="background:#333; color:#fff; border:none; width:20px; height:20px; border-radius:4px; cursor:pointer; font-size:0.7rem;">+</button>
+                  <button onclick="cambiarTiempo('${p.id}', 5)" style="background:#333; color:#fff; border:none; width:20px; height:20px; border-radius:4px; cursor:pointer; font-size:0.7rem;">+</button>`}
                 </span>
-                <span style="font-size:0.8rem; color:${p.estado === 'entregado' ? '#22c55e' : p.estado === 'en_preparacion' ? '#3b82f6' : '#f59e0b'};">${p.estado === 'entregado' ? '✅ Entregado' : p.estado === 'en_preparacion' ? '👨‍🍳 En preparación' : '⏳ Pendiente'}</span>
+                <span style="font-size:0.8rem; color:${p.estado === 'entregado' ? '#22c55e' : p.estado === 'en_preparacion' ? '#3b82f6' : p.estado === 'programado' ? '#f97316' : '#f59e0b'};">${p.estado === 'entregado' ? '✅ Entregado' : p.estado === 'en_preparacion' ? '👨‍🍳 En preparación' : p.estado === 'programado' ? '📅 Programado' : '⏳ Pendiente'}</span>
               </div>
               <ul style="list-style:none; margin-bottom:8px;">
                 ${p.items.map(i => `<li style="font-size:0.9rem;"><strong>${i.cantidad}x</strong> ${i.nombre} <span style="color:#888;">$${(i.subtotal || i.precio * i.cantidad).toFixed(2)}</span></li>`).join('')}
               </ul>
               <button onclick="mostrarFormAgregarItem('${p.id}')" style="background:#7c3aed; color:#fff; border:none; padding:5px 10px; border-radius:6px; cursor:pointer; font-size:0.8rem; margin-bottom:8px;">+ Agregar Ítem</button>
-              <div id="formAddItem-${p.id}" style="display:none; background:#18181b; border:1px solid #27272a; border-radius:8px; padding:10px; margin-bottom:8px;">
+              <div id="formAddItem-${p.id}" style="display:${formAbierto === p.id ? 'block' : 'none'}; background:#18181b; border:1px solid #27272a; border-radius:8px; padding:10px; margin-bottom:8px;">
                 <div style="display:flex; gap:6px; flex-wrap:wrap;">
                   <input type="text" id="itemName-${p.id}" placeholder="Nombre" list="menuItemsList" oninput="autollenarPrecio('${p.id}')" style="flex:1; min-width:100px; background:#2a2a3e; border:1px solid #444; color:#fff; padding:6px; border-radius:4px; font-size:0.85rem;">
                   <input type="number" id="itemQty-${p.id}" value="1" min="1" style="width:50px; background:#2a2a3e; border:1px solid #444; color:#fff; padding:6px; border-radius:4px; font-size:0.85rem;">
@@ -1466,6 +1635,7 @@
       `;
 
       contenedor.innerHTML = html;
+      if (formAbierto) restoreFormAddItemVals(formAbierto);
     }
 
     function marcarMesaActiva(nombreMesa) {
@@ -1501,11 +1671,34 @@
     }
 
     function mostrarFormAgregarItem(pedidoId) {
+      window._formAddItemAbierto = pedidoId;
+      window._formAddItemVals = {};
       document.getElementById(`formAddItem-${pedidoId}`).style.display = 'block';
     }
 
     function ocultarFormAgregarItem(pedidoId) {
+      window._formAddItemAbierto = null;
+      window._formAddItemVals = {};
       document.getElementById(`formAddItem-${pedidoId}`).style.display = 'none';
+    }
+
+    function saveFormAddItemVals(pedidoId) {
+      const n = document.getElementById(`itemName-${pedidoId}`);
+      const q = document.getElementById(`itemQty-${pedidoId}`);
+      const p = document.getElementById(`itemPrice-${pedidoId}`);
+      if (n || q || p) {
+        window._formAddItemVals = { nombre: n?.value || '', qty: q?.value || '1', price: p?.value || '' };
+      }
+    }
+
+    function restoreFormAddItemVals(pedidoId) {
+      const v = window._formAddItemVals || {};
+      const n = document.getElementById(`itemName-${pedidoId}`);
+      const q = document.getElementById(`itemQty-${pedidoId}`);
+      const p = document.getElementById(`itemPrice-${pedidoId}`);
+      if (n && v.nombre) n.value = v.nombre;
+      if (q && v.qty) q.value = v.qty;
+      if (p && v.price) p.value = v.price;
     }
 
     async function confirmarAgregarItem(pedidoId) {
@@ -1550,6 +1743,10 @@
       document.getElementById('btnCobrarConfirmar').disabled = false;
       document.getElementById('btnCobrarConfirmar').textContent = '💳 Confirmar Cobro';
 
+      // Populate medios de pago
+      const selectMP = document.getElementById('cobroMedioPago');
+      selectMP.innerHTML = mediosPagoCache.map(m => `<option value="${escHtml(m)}">${escHtml(m)}</option>`).join('');
+
       if (arcaConfigCache.habilitado) {
         document.getElementById('cobroFacturaOption').style.display = 'block';
       } else {
@@ -1567,6 +1764,7 @@
     async function confirmarCobro() {
       const nombreMesa = document.getElementById('cobroMesaNombre').value;
       const emitirFactura = document.getElementById('cobroEmitirFactura').checked;
+      const medioPago = document.getElementById('cobroMedioPago').value;
       const btn = document.getElementById('btnCobrarConfirmar');
       btn.disabled = true;
 
@@ -1579,7 +1777,7 @@
         const res = await fetch(`/api/pedidos/${p.id}`, {
           method: 'PATCH',
           headers: adminHeaders(),
-          body: JSON.stringify({ pagado: true, estado: 'entregado' })
+          body: JSON.stringify({ pagado: true, estado: 'entregado', medioPago })
         });
         if (handleAuthError(res)) return;
       }
@@ -1708,7 +1906,7 @@
     }
 
     async function attendWaiterCall(id) {
-      const res = await fetch(`/api/mozo/${id}`, { method: 'PATCH', headers: adminHeaders() });
+      const res = await fetch(`/api/mozo/${id}`, { method: 'PATCH', headers: adminHeaders(), body: '{}' });
       if (handleAuthError(res)) return;
       fetchDashboardData();
     }
@@ -2155,7 +2353,7 @@
       document.getElementById('qrModalNombreMesa').innerText = nombreMesa;
       const box = document.getElementById('qrModalBox');
       box.innerHTML = '';
-      const url = `${getBaseUrl()}/cliente.html?mesa=${encodeURIComponent(nombreMesa)}`;
+      const url = `${getBaseUrl()}/?mesa=${encodeURIComponent(nombreMesa)}`;
       new QRCode(box, { text: url, width: 160, height: 160 });
       document.getElementById('modalQrIndividual').classList.add('active');
     }
@@ -2232,7 +2430,7 @@
         card.appendChild(qrDiv);
         printBox.appendChild(card);
 
-        const url = `${getBaseUrl()}/cliente.html?mesa=${encodeURIComponent(m.nombre)}`;
+        const url = `${getBaseUrl()}/?mesa=${encodeURIComponent(m.nombre)}`;
         new QRCode(qrDiv, { text: url, width: 120, height: 120 });
       });
 
@@ -2459,6 +2657,64 @@
       }
     }
 
+    // --- LISTA DE ESPERA ---
+    async function renderListaEsperaView() {
+      try {
+        const res = await fetch('/api/lista-espera');
+        const lista = await res.json();
+        const container = document.getElementById('listaEsperaAdmin');
+        if (!lista.length) {
+          container.innerHTML = '<p style="color:#888; text-align:center; padding:20px;">No hay nadie en la lista de espera</p>';
+          return;
+        }
+        container.innerHTML = lista.map((e, i) => `
+          <div style="display:flex; align-items:center; justify-content:space-between; background:#27272a; border-radius:10px; padding:12px 16px; margin-bottom:8px; ${e.estado !== 'esperando' ? 'opacity:0.5;' : ''}">
+            <div>
+              <span style="color:#f97316; font-weight:700; font-size:1.1rem; margin-right:8px;">#${i + 1}</span>
+              <strong style="color:#fff;">${escHtml(e.nombre)}</strong>
+              <span style="color:#888; font-size:0.85rem; margin-left:6px;">${e.personas} pers.</span>
+              ${e.telefono ? `<span style="color:#888; font-size:0.8rem; margin-left:6px;">📱 ${escHtml(e.telefono)}</span>` : ''}
+              ${e.estado === 'notificado' ? '<span style="color:#22c55e; font-size:0.8rem; margin-left:8px;">✓ Notificado</span>' : ''}
+              ${e.estado === 'atendido' ? '<span style="color:#888; font-size:0.8rem; margin-left:8px;">Finalizado</span>' : ''}
+            </div>
+            <div style="display:flex; gap:6px;">
+              ${e.estado === 'esperando' ? `
+                <button onclick="notificarListaEspera('${e.id}')" style="background:#22c55e; color:#fff; border:none; padding:6px 10px; border-radius:6px; cursor:pointer; font-size:0.8rem;">📱 Avisar</button>
+                <button onclick="eliminarListaEspera('${e.id}')" style="background:#ef4444; color:#fff; border:none; padding:6px 10px; border-radius:6px; cursor:pointer; font-size:0.8rem;">✕</button>
+              ` : ''}
+              ${e.estado === 'notificado' ? `
+                <button onclick="finalizarListaEspera('${e.id}')" style="background:#22c55e; color:#fff; border:none; padding:6px 10px; border-radius:6px; cursor:pointer; font-size:0.8rem;">✓ Atendido</button>
+                <button onclick="eliminarListaEspera('${e.id}')" style="background:#ef4444; color:#fff; border:none; padding:6px 10px; border-radius:6px; cursor:pointer; font-size:0.8rem;">✕</button>
+              ` : ''}
+            </div>
+          </div>
+        `).join('');
+      } catch (e) {
+        document.getElementById('listaEsperaAdmin').innerHTML = '<p style="color:#ef4444; text-align:center;">Error al cargar</p>';
+      }
+    }
+
+    async function notificarListaEspera(id) {
+      await fetch(`/api/lista-espera/${id}`, {
+        method: 'PATCH', headers: { ...adminHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ estado: 'notificado', notificadoAt: new Date().toISOString() })
+      });
+      renderListaEsperaView();
+    }
+
+    async function finalizarListaEspera(id) {
+      await fetch(`/api/lista-espera/${id}`, {
+        method: 'PATCH', headers: { ...adminHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ estado: 'atendido' })
+      });
+      renderListaEsperaView();
+    }
+
+    async function eliminarListaEspera(id) {
+      await fetch(`/api/lista-espera/${id}`, { method: 'DELETE', headers: adminHeaders() });
+      renderListaEsperaView();
+    }
+
     async function cargarTicketConfig() {
       try {
         const [resTk, resCfg] = await Promise.all([
@@ -2476,6 +2732,8 @@
         document.getElementById('tkLeyenda').value = config.leyenda || '';
         document.getElementById('publicUrlInput').value = cfg.publicUrl || '';
         if (cfg.publicUrl) appPublicUrl = cfg.publicUrl;
+        if (cfg.mediosPago) mediosPagoCache = cfg.mediosPago;
+        renderMediosPago();
         cargarArcaConfig();
       } catch (err) {
         console.error('Error al cargar config:', err);
@@ -2513,6 +2771,44 @@
         body: JSON.stringify(config)
       });
       alert('✅ Configuración del ticket guardada');
+    }
+
+    // --- MEDIOS DE PAGO ---
+    let mediosPagoCache = ['Efectivo', 'Tarjeta de Crédito', 'Tarjeta de Débito', 'Transferencia', 'QR Mercado Pago'];
+
+    function renderMediosPago() {
+      const container = document.getElementById('mediosPagoList');
+      container.innerHTML = mediosPagoCache.map((m, i) => `
+        <div style="display:flex; justify-content:space-between; align-items:center; background:#2a2a3e; border-radius:8px; padding:8px 12px;">
+          <span style="color:#fff; font-size:0.9rem;">${escHtml(m)}</span>
+          <button onclick="eliminarMedioPago(${i})" style="background:none; color:#ef4444; border:none; cursor:pointer; font-size:1rem;">✕</button>
+        </div>
+      `).join('');
+    }
+
+    async function agregarMedioPago() {
+      const input = document.getElementById('nuevoMedioPago');
+      const val = input.value.trim();
+      if (!val) return;
+      if (mediosPagoCache.includes(val)) return alert('Ya existe ese medio de pago');
+      mediosPagoCache.push(val);
+      input.value = '';
+      renderMediosPago();
+      await guardarMediosPago();
+    }
+
+    async function eliminarMedioPago(idx) {
+      mediosPagoCache.splice(idx, 1);
+      renderMediosPago();
+      await guardarMediosPago();
+    }
+
+    async function guardarMediosPago() {
+      await fetch('/api/config', {
+        method: 'POST',
+        headers: adminHeaders(),
+        body: JSON.stringify({ mediosPago: mediosPagoCache })
+      });
     }
 
     // FUNCIONES ARCA
@@ -2764,6 +3060,10 @@
 
     socket.on('llamada_atendida', (data) => {
       if (currentTab === 'dashboard') fetchDashboardData();
+    });
+
+    socket.on('lista_espera_actualizada', () => {
+      if (currentTab === 'listaespera') renderListaEsperaView();
     });
 
     let insumosCache = [];
@@ -3157,6 +3457,32 @@
 
       // Gráfico de línea: Facturación diaria
       renderChartFacturacion(d.pedidosPorDia);
+
+      // Desglose por medio de pago
+      const tablaPagos = document.getElementById('tablaPagos');
+      if (d.pagosPorMedio && d.pagosPorMedio.length) {
+        const maxPago = Math.max(...d.pagosPorMedio.map(p => p.total));
+        tablaPagos.innerHTML = `
+          <table style="width:100%; border-collapse:collapse; font-size:0.85rem;">
+            <thead><tr style="border-bottom:1px solid #444; color:#a1a1aa;">
+              <th style="text-align:left; padding:6px;">Medio de Pago</th>
+              <th style="text-align:center; padding:6px;">Cant. Cobros</th>
+              <th style="text-align:right; padding:6px;">Total</th>
+              <th style="text-align:right; padding:6px;">%</th>
+            </tr></thead>
+            <tbody>${d.pagosPorMedio.map(p => {
+              const pct = d.totalVentas > 0 ? ((p.total / d.totalVentas) * 100).toFixed(1) : 0;
+              return `<tr style="border-bottom:1px solid #27272a;">
+                <td style="padding:6px; color:#fff; font-weight:600;">${escHtml(p.medio)}</td>
+                <td style="padding:6px; text-align:center; color:#888;">${p.cantidad}</td>
+                <td style="padding:6px; text-align:right; color:#22c55e; font-weight:700;">$${Number(p.total).toFixed(2)}</td>
+                <td style="padding:6px; text-align:right; color:#888;">${pct}%</td>
+              </tr>`;
+            }).join('')}</tbody>
+          </table>`;
+      } else {
+        tablaPagos.innerHTML = '<p style="color:#71717a;">Sin cobros registrados en este período.</p>';
+      }
     }
 
     function renderChartHorarios(data) {
@@ -3436,29 +3762,54 @@
 
     // --- LINK MOZO ---
     function getMozoUrl() {
-      const cfg = (typeof appConfig !== 'undefined' && appConfig && appConfig.publicUrl) ? appConfig.publicUrl : '';
-      if (cfg) return cfg.replace(/\/+$/, '') + '/mozo.html';
+      const cfg = appPublicUrl || '';
+      if (cfg) {
+        const url = cfg.replace(/\/+$/, '');
+        return url.replace('menu.', 'mozo.');
+      }
       return window.location.origin + '/mozo.html';
+    }
+
+    function getCocinaUrl() {
+      const cfg = appPublicUrl || '';
+      if (cfg) {
+        const url = cfg.replace(/\/+$/, '');
+        return url.replace('menu.', 'cocina.');
+      }
+      return window.location.origin + '/cocina.html';
+    }
+
+    function getAdminUrl() {
+      const cfg = appPublicUrl || '';
+      if (cfg) {
+        const url = cfg.replace(/\/+$/, '');
+        return url.replace('menu.', 'admin.');
+      }
+      return window.location.origin + '/admin';
     }
 
     function initMozoLink() {
       document.getElementById('mozoLinkText').textContent = getMozoUrl();
-      if (navigator.share) {
-        document.getElementById('btnCompartirLink').style.display = 'inline-block';
-      }
+      document.getElementById('cocinaLinkText').textContent = getCocinaUrl();
+      document.getElementById('adminLinkText').textContent = getAdminUrl();
     }
 
-    function copiarMozoLink() {
-      const url = getMozoUrl();
+    function copiarLink(tipo) {
+      const urls = { mozo: getMozoUrl(), cocina: getCocinaUrl(), admin: getAdminUrl() };
+      const btnIds = { mozo: 'btnCopiarLink', cocina: 'btnCopiarCocina', admin: 'btnCopiarAdmin' };
+      const colors = { mozo: '#22c55e', cocina: '#f97316', admin: '#3b82f6' };
+      const url = urls[tipo];
+      const btn = document.getElementById(btnIds[tipo]);
       navigator.clipboard.writeText(url).then(() => {
-        const btn = document.getElementById('btnCopiarLink');
-        btn.textContent = '\u2705 Copiado!';
+        btn.textContent = '✅ Copiado!';
         btn.style.background = '#16a34a';
-        setTimeout(() => { btn.textContent = '\uD83D\uDCCB Copiar'; btn.style.background = '#22c55e'; }, 2000);
+        setTimeout(() => { btn.textContent = '📋 Copiar'; btn.style.background = colors[tipo]; }, 2000);
       }).catch(() => {
         prompt('Copiá este link:', url);
       });
     }
+
+    function copiarMozoLink() { copiarLink('mozo'); }
 
     function compartirMozoLink() {
       const url = getMozoUrl();
@@ -3479,15 +3830,15 @@
         if (handleAuthError(resMozos)) return;
         const todos = await resMozos.json();
         const activos = await resActivos.json();
-        const mozos = todos.filter(u => u.rol === 'mozo' && u.activo);
+        const personal = todos.filter(u => u.activo && u.rol !== 'admin');
         const grid = document.getElementById('mozosTurnoGrid');
 
-        if (!mozos.length) {
-          grid.innerHTML = '<p style="color:#888; grid-column:1/-1; text-align:center; padding:20px;">No hay mozos creados. Creá uno desde el tab Usuarios con rol "Mozo".</p>';
+        if (!personal.length) {
+          grid.innerHTML = '<p style="color:#888; grid-column:1/-1; text-align:center; padding:20px;">No hay usuarios creados. Creá uno desde el tab Usuarios.</p>';
           return;
         }
 
-        grid.innerHTML = mozos.map(m => {
+        grid.innerHTML = personal.map(m => {
           const turno = activos.find(t => t.mozoId === m.id);
           const enTurno = !!turno;
           const desde = turno ? new Date(turno.inicio) : null;
@@ -3503,9 +3854,12 @@
                 <span style="background:${enTurno ? '#22c55e22; color:#22c55e' : '#44422; color:#888'}; padding:4px 10px; border-radius:20px; font-size:0.75rem; font-weight:600;">${enTurno ? 'EN TURNO' : 'INACTIVO'}</span>
               </div>
               ${enTurno ? `<div style="color:#888; font-size:0.8rem; margin-bottom:8px;">Desde ${desde.toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit'})} — ${horas}h ${mins}m</div>` : ''}
-              <button onclick="${enTurno ? `cerrarTurnoMozo('${turno.id}')` : `abrirTurnoMozo('${m.id}')`}" style="width:100%; padding:10px; border:none; border-radius:8px; font-weight:700; cursor:pointer; font-size:0.85rem; background:${enTurno ? '#ef4444' : '#22c55e'}; color:#fff;">
-                ${enTurno ? '⏹ Finalizar Turno' : '▶ Iniciar Turno'}
-              </button>
+              <div style="display:flex; gap:6px;">
+                ${enTurno ? `<button onclick="editarInicioTurno('${turno.id}', '${desde.toISOString()}')" style="flex:1; padding:10px; border:none; border-radius:8px; font-weight:700; cursor:pointer; font-size:0.85rem; background:#3b82f6; color:#fff;">✏️ Editar Hora</button>` : ''}
+                <button onclick="${enTurno ? `cerrarTurnoMozo('${turno.id}')` : `abrirTurnoMozo('${m.id}')`}" style="flex:1; padding:10px; border:none; border-radius:8px; font-weight:700; cursor:pointer; font-size:0.85rem; background:${enTurno ? '#ef4444' : '#22c55e'}; color:#fff;">
+                  ${enTurno ? '⏹ Finalizar Turno' : '▶ Iniciar Turno'}
+                </button>
+              </div>
             </div>`;
         }).join('');
       } catch(e) { console.error('Error mozos turno:', e); }
@@ -3525,11 +3879,53 @@
     async function cerrarTurnoMozo(turnoId) {
       if (!confirm('¿Finalizar el turno de este mozo?')) return;
       const res = await fetch(`/api/turnos-mozos/${turnoId}/cerrar`, {
-        method: 'PATCH', headers: adminHeaders()
+        method: 'PATCH', headers: adminHeaders(), body: '{}'
       });
       if (handleAuthError(res)) return;
       const data = await res.json();
       if (data.error) return alert(data.error);
+      cargarMozosTurno();
+    }
+
+    let editarTurnoId = null;
+
+    async function editarInicioTurno(turnoId, fechaActual) {
+      editarTurnoId = turnoId;
+      const date = new Date(fechaActual);
+      document.getElementById('editarTurnoFecha').value = date.getFullYear() + '-' + String(date.getMonth()+1).padStart(2,'0') + '-' + String(date.getDate()).padStart(2,'0');
+      document.getElementById('editarTurnoHora').value = String(date.getHours()).padStart(2,'0') + ':' + String(date.getMinutes()).padStart(2,'0');
+
+      const activos = await (await fetch('/api/turnos-mozos/activos', { headers: adminHeaders() })).json();
+      const turno = activos.find(t => t.id === turnoId);
+      document.getElementById('editarTurnoNombre').textContent = turno ? `Turno de ${turno.mozoNombre}` : '';
+      document.getElementById('editarTurnoHoraFin').value = '';
+
+      document.getElementById('modalEditarTurno').classList.add('active');
+    }
+
+    function cerrarModalEditarTurno() {
+      document.getElementById('modalEditarTurno').classList.remove('active');
+      editarTurnoId = null;
+    }
+
+    async function guardarEditarTurno() {
+      if (!editarTurnoId) return;
+      const fecha = document.getElementById('editarTurnoFecha').value;
+      const hora = document.getElementById('editarTurnoHora').value;
+      if (!fecha || !hora) return alert('Completá fecha y hora de inicio');
+
+      const body = { inicio: `${fecha}T${hora}:00` };
+      const horaFin = document.getElementById('editarTurnoHoraFin').value;
+      if (horaFin) body.fin = `${fecha}T${horaFin}:00`;
+
+      const res = await fetch(`/api/turnos-mozos/${editarTurnoId}/editar-inicio`, {
+        method: 'PATCH', headers: { ...adminHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      if (handleAuthError(res)) return;
+      const data = await res.json();
+      if (data.error) return alert(data.error);
+      cerrarModalEditarTurno();
       cargarMozosTurno();
     }
 

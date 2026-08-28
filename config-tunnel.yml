@@ -1,0 +1,13 @@
+tunnel: 5c8e89e8-c63a-438c-a69b-50623f0bc469
+credentials-file: C:\Users\Maidana\.cloudflared\5c8e89e8-c63a-438c-a69b-50623f0bc469.json
+
+ingress:
+  - hostname: menu.onlinecart.com.ar
+    service: http://localhost:3000
+  - hostname: mozo.onlinecart.com.ar
+    service: http://localhost:3000
+  - hostname: cocina.onlinecart.com.ar
+    service: http://localhost:3000
+  - hostname: admin.onlinecart.com.ar
+    service: http://localhost:3000
+  - service: http_status:404

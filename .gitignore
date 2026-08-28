@@ -16,6 +16,9 @@ caja.json
 turnos.json
 turnos-mozos.json
 config.json
+lista-espera.json
+vapid.json
+push-subs.json
 cloudflared.exe
 .env
 *.log

@@ -5,6 +5,7 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import webPush from 'web-push';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -35,8 +36,89 @@ function escHtml(str) {
 app.use(express.static(path.join(__dirname, 'public')));      // /sounds, /brand, /assets
 app.use('/src', express.static(path.join(__dirname, 'src'))); // /src/js, /src/styles
 app.get('/sw.js', (req, res) => res.sendFile(path.join(__dirname, 'sw.js')));
-app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
-app.get('/index.html', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
+app.get('/push-sw.js', (req, res) => res.sendFile(path.join(__dirname, 'push-sw.js')));
+
+// --- PUSH NOTIFICATIONS ---
+app.get('/api/push/vapid-key', (req, res) => {
+  res.json({ publicKey: vapidKeys.publicKey });
+});
+
+app.post('/api/push/subscribe', (req, res) => {
+  const subscription = req.body;
+  if (!subscription || !subscription.endpoint) return res.status(400).json({ error: 'Invalid subscription' });
+  const subs = loadPushSubs();
+  const exists = subs.find(s => s.endpoint === subscription.endpoint);
+  if (!exists) {
+    subs.push(subscription);
+    savePushSubs(subs);
+  }
+  res.json({ ok: true });
+});
+
+app.delete('/api/push/subscribe', (req, res) => {
+  const subscription = req.body;
+  if (!subscription || !subscription.endpoint) return res.status(400).json({ error: 'Invalid subscription' });
+  let subs = loadPushSubs();
+  subs = subs.filter(s => s.endpoint !== subscription.endpoint);
+  savePushSubs(subs);
+  res.json({ ok: true });
+});
+
+// --- LISTA DE ESPERA ---
+app.get('/api/lista-espera', (req, res) => {
+  res.json(loadData(LISTA_ESPERA_FILE, []));
+});
+
+app.post('/api/lista-espera', (req, res) => {
+  const { nombre, personas, telefono } = req.body;
+  if (!nombre || !personas) return res.status(400).json({ error: 'nombre y personas requeridos' });
+  const lista = loadData(LISTA_ESPERA_FILE, []);
+  const entry = {
+    id: crypto.randomUUID(),
+    nombre: String(nombre).trim(),
+    personas: Number(personas),
+    telefono: String(telefono || '').trim(),
+    estado: 'esperando',
+    createdAt: new Date().toISOString()
+  };
+  lista.push(entry);
+  saveData(LISTA_ESPERA_FILE, lista);
+  io.emit('lista_espera_actualizada', lista);
+  res.status(201).json(entry);
+});
+
+app.patch('/api/lista-espera/:id', authMiddleware, (req, res) => {
+  const lista = loadData(LISTA_ESPERA_FILE, []);
+  const entry = lista.find(e => e.id === req.params.id);
+  if (!entry) return res.status(404).json({ error: 'No encontrado' });
+  if (req.body.estado !== undefined) entry.estado = req.body.estado;
+  if (req.body.notificadoAt !== undefined) entry.notificadoAt = req.body.notificadoAt;
+  saveData(LISTA_ESPERA_FILE, lista);
+  io.emit('lista_espera_actualizada', lista);
+  res.json(entry);
+});
+
+app.delete('/api/lista-espera/:id', authMiddleware, (req, res) => {
+  let lista = loadData(LISTA_ESPERA_FILE, []);
+  lista = lista.filter(e => e.id !== req.params.id);
+  saveData(LISTA_ESPERA_FILE, lista);
+  io.emit('lista_espera_actualizada', lista);
+  res.json({ ok: true });
+});
+
+// Subdomain routing: menu → cliente, mozo → mozo, cocina → cocina, admin → admin
+app.get('/', (req, res) => {
+  const host = (req.headers.host || '').split(':')[0];
+  if (host.startsWith('mozo.')) return res.sendFile(path.join(__dirname, 'mozo.html'));
+  if (host.startsWith('cocina.')) return res.sendFile(path.join(__dirname, 'cocina.html'));
+  if (host.startsWith('admin.')) return res.sendFile(path.join(__dirname, 'index.html'));
+  if (host.startsWith('menu.')) return res.sendFile(path.join(__dirname, 'cliente.html'));
+  return res.sendFile(path.join(__dirname, 'cliente.html'));
+});
+
+app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
+app.get('/admin.html', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
+app.get('/index.html', (req, res) => res.redirect('/admin'));
 app.get('/cliente.html', (req, res) => res.sendFile(path.join(__dirname, 'cliente.html')));
 app.get('/cocina.html', (req, res) => res.sendFile(path.join(__dirname, 'cocina.html')));
 app.get('/mozo.html', (req, res) => res.sendFile(path.join(__dirname, 'mozo.html')));
@@ -55,7 +137,36 @@ const ARCA_FILE = path.join(__dirname, 'arca.json');
 const FACTURAS_FILE = path.join(__dirname, 'facturas.json');
 const CAJA_FILE = path.join(__dirname, 'caja.json');
 const TURNOS_FILE = path.join(__dirname, 'turnos.json');
+const PUSH_SUBS_FILE = path.join(__dirname, 'push-subs.json');
+const VAPID_FILE = path.join(__dirname, 'vapid.json');
+const LISTA_ESPERA_FILE = path.join(__dirname, 'lista-espera.json');
 const BACKUP_DIR = path.join(__dirname, 'backups');
+
+// Web Push VAPID setup
+let vapidKeys;
+try {
+  vapidKeys = JSON.parse(fs.readFileSync(VAPID_FILE, 'utf8'));
+  webPush.setVapidDetails('mailto:admin@elpatio.com', vapidKeys.publicKey, vapidKeys.privateKey);
+} catch (e) {
+  vapidKeys = webPush.generateVAPIDKeys();
+  fs.writeFileSync(VAPID_FILE, JSON.stringify(vapidKeys, null, 2));
+  webPush.setVapidDetails('mailto:admin@elpatio.com', vapidKeys.publicKey, vapidKeys.privateKey);
+}
+
+function loadPushSubs() { return loadData(PUSH_SUBS_FILE, []); }
+function savePushSubs(subs) { saveData(PUSH_SUBS_FILE, subs); }
+
+function sendPushToMozos(title, body, url) {
+  const subs = loadPushSubs();
+  for (const sub of subs) {
+    webPush.sendNotification(sub, JSON.stringify({ title, body, url }))
+      .catch(err => {
+        if (err.statusCode === 410 || err.statusCode === 404) {
+          savePushSubs(subs.filter(s => s.endpoint !== sub.endpoint));
+        }
+      });
+  }
+}
 
 const ADMIN_PASSWORD = 'admin123';
 let activeTokens = new Map(); // token → { createdAt, usuario, rol }
@@ -371,22 +482,27 @@ app.post('/api/pedidos', (req, res) => {
   });
   const serverTotal = recalculatedItems.reduce((sum, i) => sum + i.subtotal, 0);
 
+  const isProgramado = req.body.fechaProgramada && new Date(req.body.fechaProgramada) > new Date();
+
   const nuevoPedido = {
     id: `PED-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`,
     mesa: req.body.mesa || '1',
     items: recalculatedItems,
     total: serverTotal,
     propina: 0,
-    estado: 'pendiente',
-    tiempoEstimado: calcularTiempoEstimado(),
-    fecha: new Date().toISOString()
+    estado: isProgramado ? 'programado' : 'pendiente',
+    tiempoEstimado: isProgramado ? null : calcularTiempoEstimado(),
+    fecha: new Date().toISOString(),
+    fechaProgramada: isProgramado ? req.body.fechaProgramada : null
   };
   pedidos.push(nuevoPedido);
   saveData(PEDIDOS_FILE, pedidos);
   
-  descontarStockDeItems(nuevoPedido.items);
-
-  io.emit('nuevo_pedido', nuevoPedido);
+  if (!isProgramado) {
+    descontarStockDeItems(nuevoPedido.items);
+    io.emit('nuevo_pedido', nuevoPedido);
+    sendPushToMozos('Nuevo Pedido', `${nuevoPedido.mesa}: ${nuevoPedido.items.map(i => i.nombre).join(', ')}`, '/mozo.html');
+  }
 
   res.status(201).json(nuevoPedido);
 });
@@ -399,6 +515,15 @@ app.patch('/api/pedidos/:id/propina', (req, res) => {
   res.json({ ok: true, propina: pedido.propina });
 });
 
+// Público: pedidos activos de una mesa (sin auth)
+app.get('/api/pedidos/mesa/:mesa', (req, res) => {
+  const mesa = decodeURIComponent(req.params.mesa);
+  const activos = pedidos.filter(p =>
+    (p.mesa || '').toLowerCase() === mesa.toLowerCase() && !p.pagado
+  ).sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+  res.json(activos);
+});
+
 app.patch('/api/pedidos/:id', authMiddleware, (req, res) => {
   const pedido = pedidos.find(p => p.id === req.params.id);
   if (!pedido) return res.status(404).json({ error: 'Pedido no encontrado' });
@@ -406,6 +531,7 @@ app.patch('/api/pedidos/:id', authMiddleware, (req, res) => {
   if (req.body.estado) pedido.estado = req.body.estado;
   if (req.body.pagado !== undefined) pedido.pagado = req.body.pagado;
   if (req.body.propina !== undefined) pedido.propina = req.body.propina;
+  if (req.body.medioPago !== undefined) pedido.medioPago = req.body.medioPago;
   if (req.body.tiempoEstimado !== undefined) pedido.tiempoEstimado = req.body.tiempoEstimado;
   if (req.body.addItem) {
     pedido.items.push(req.body.addItem);
@@ -418,6 +544,7 @@ app.patch('/api/pedidos/:id', authMiddleware, (req, res) => {
   io.emit('pedido_actualizado', pedido);
 
   if (req.body.estado === 'entregado') {
+    pedido.fechaEntrega = new Date().toISOString();
     io.emit('pedido_listo', { mesa: pedido.mesa, pedidoId: pedido.id });
   }
 
@@ -807,6 +934,16 @@ app.get('/api/reportes', authMiddleware, (req, res) => {
     pedidosPorDia[dia].propinas += (p.propina || 0);
   });
 
+  // Desglose por medio de pago
+  const pagosMap = {};
+  pedidosRango.forEach(p => {
+    const mp = p.medioPago || 'No especificado';
+    if (!pagosMap[mp]) pagosMap[mp] = { medio: mp, cantidad: 0, total: 0 };
+    pagosMap[mp].cantidad++;
+    pagosMap[mp].total += (p.total || 0);
+  });
+  const pagosPorMedio = Object.values(pagosMap).sort((a, b) => b.total - a.total);
+
   res.json({
     desde,
     hasta,
@@ -820,7 +957,88 @@ app.get('/api/reportes', authMiddleware, (req, res) => {
     topPlatos,
     horariosPico,
     rankingMargen,
-    pedidosPorDia
+    pedidosPorDia,
+    pagosPorMedio
+  });
+});
+
+// MÉTRICAS EN TIEMPO REAL (para dashboard admin)
+app.get('/api/metricas', authMiddleware, (req, res) => {
+  const now = new Date();
+  const hoy = localDate(now);
+  const fechaDesde = new Date(hoy + 'T00:00:00');
+  const fechaHasta = new Date(hoy + 'T23:59:59.999');
+
+  const pedidosHoy = pedidos.filter(p => {
+    const f = new Date(p.fecha);
+    return f >= fechaDesde && f <= fechaHasta && p.pagado;
+  });
+
+  // Pedidos activos (no pagados)
+  const activos = pedidos.filter(p => !p.pagado && p.estado !== 'entregado' && p.estado !== 'programado');
+
+  // Pedidos de hoy
+  const totalVentasHoy = pedidosHoy.reduce((s, p) => s + (p.total || 0), 0);
+  const totalPropinasHoy = pedidosHoy.reduce((s, p) => s + (p.propina || 0), 0);
+  const totalPedidosHoy = pedidosHoy.length;
+  const ticketPromedio = totalPedidosHoy > 0 ? totalVentasHoy / totalPedidosHoy : 0;
+
+  // Tiempo promedio de preparación (entre pendiente y entregado)
+  let tiempos = [];
+  pedidosHoy.forEach(p => {
+    if (p.fechaEntrega) {
+      const preparacion = (new Date(p.fechaEntrega) - new Date(p.fecha)) / 60000;
+      if (preparacion > 0 && preparacion < 120) tiempos.push(preparacion);
+    }
+  });
+  const tiempoPromPreparacion = tiempos.length > 0 ? Math.round(tiempos.reduce((a, b) => a + b, 0) / tiempos.length) : 0;
+
+  // Ocupación de mesas
+  const mesasActivas = new Set(activos.map(p => p.mesa)).size;
+  const totalMesas = mesasCache.length || 1;
+
+  // Pedidos por hora (hoy)
+  const pedidosPorHora = {};
+  for (let h = 8; h <= 23; h++) pedidosPorHora[h] = 0;
+  pedidosHoy.forEach(p => {
+    const hora = new Date(p.fecha).getHours();
+    if (pedidosPorHora[hora] !== undefined) pedidosPorHora[hora]++;
+  });
+  const horariosData = Object.entries(pedidosPorHora).map(([hora, cantidad]) => ({
+    hora: parseInt(hora), cantidad, label: `${hora}:00`
+  }));
+
+  // Top 5 platos hoy
+  const platosMap = {};
+  pedidosHoy.forEach(p => {
+    (p.items || []).forEach(i => {
+      if (!platosMap[i.nombre]) platosMap[i.nombre] = { nombre: i.nombre, cantidad: 0, total: 0 };
+      platosMap[i.nombre].cantidad += i.cantidad;
+      platosMap[i.nombre].total += (i.subtotal || i.precioUnitario * i.cantidad || 0);
+    });
+  });
+  const topPlatos = Object.values(platosMap).sort((a, b) => b.cantidad - a.cantidad).slice(0, 5);
+
+  // Estado de pedidos activos
+  const porEstado = { pendiente: 0, en_preparacion: 0, programado: 0 };
+  activos.forEach(p => { if (porEstado[p.estado] !== undefined) porEstado[p.estado]++; });
+  const programados = pedidos.filter(p => p.estado === 'programado').length;
+
+  res.json({
+    hoy,
+    totalVentasHoy,
+    totalPropinasHoy,
+    totalPedidosHoy,
+    ticketPromedio,
+    tiempoPromPreparacion,
+    mesasActivas,
+    totalMesas,
+    ocupacionMesas: totalMesas > 0 ? Math.round((mesasActivas / totalMesas) * 100) : 0,
+    pedidosPorHora: horariosData,
+    topPlatos,
+    pedidosActivos: activos.length,
+    porEstado,
+    programados
   });
 });
 
@@ -1213,8 +1431,8 @@ app.post('/api/turnos-mozos', authMiddleware, roleMiddleware('admin', 'cajero'),
   const { mozoId } = req.body;
   if (!mozoId) return res.status(400).json({ error: 'mozoId requerido' });
 
-  const mozo = usuarios.find(u => u.id === mozoId && u.rol === 'mozo');
-  if (!mozo) return res.status(404).json({ error: 'Mozo no encontrado' });
+  const mozo = usuarios.find(u => u.id === mozoId);
+  if (!mozo) return res.status(404).json({ error: 'Usuario no encontrado' });
 
   const yaActivo = turnosMozos.find(t => t.mozoId === mozoId && t.estado === 'activo');
   if (yaActivo) return res.status(409).json({ error: `${mozo.nombre} ya tiene un turno activo` });
@@ -1244,6 +1462,23 @@ app.patch('/api/turnos-mozos/:id/cerrar', authMiddleware, roleMiddleware('admin'
   turno.estado = 'finalizado';
   turno.fin = new Date().toISOString();
   turno.adminCerro = req.user.nombre || req.user.usuario;
+  saveData(path.join(__dirname, 'turnos-mozos.json'), turnosMozos);
+  io.emit('turno_mozo_actualizado', turno);
+  res.json(turno);
+});
+
+// Admin: editar inicio/fin de turno
+app.patch('/api/turnos-mozos/:id/editar-inicio', authMiddleware, roleMiddleware('admin', 'cajero'), (req, res) => {
+  const turno = turnosMozos.find(t => t.id === req.params.id);
+  if (!turno) return res.status(404).json({ error: 'Turno no encontrado' });
+
+  const { inicio, fin } = req.body;
+  if (inicio) turno.inicio = new Date(inicio).toISOString();
+  if (fin) {
+    turno.fin = new Date(fin).toISOString();
+    turno.estado = 'finalizado';
+    turno.adminCerro = req.user.nombre || req.user.usuario;
+  }
   saveData(path.join(__dirname, 'turnos-mozos.json'), turnosMozos);
   io.emit('turno_mozo_actualizado', turno);
   res.json(turno);
@@ -1341,6 +1576,23 @@ function calcularTiempoEstimado() {
   activos.forEach(p => { if (porEstado[p.estado] !== undefined) porEstado[p.estado]++; });
   return 5 + (porEstado.pendiente * 3) + (porEstado.en_preparacion * 2);
 }
+
+// Scheduler: pedidos programados → pendientes cuando llega la hora
+setInterval(() => {
+  const now = new Date();
+  let changed = false;
+  pedidos.forEach(p => {
+    if (p.estado === 'programado' && p.fechaProgramada && new Date(p.fechaProgramada) <= now) {
+      p.estado = 'pendiente';
+      p.tiempoEstimado = calcularTiempoEstimado();
+      changed = true;
+      descontarStockDeItems(p.items);
+      io.emit('nuevo_pedido', p);
+      sendPushToMozos('Pedido Programado', `${p.mesa}: ${p.items.map(i => i.nombre).join(', ')}`, '/mozo.html');
+    }
+  });
+  if (changed) saveData(PEDIDOS_FILE, pedidos);
+}, 30000);
 
 // IMPORTANTE: Usamos server.listen en lugar de app.listen para soportar Socket.io
 server.listen(PORT, '0.0.0.0', () => console.log(`🚀 Servidor ejecutándose en http://localhost:${PORT}`));

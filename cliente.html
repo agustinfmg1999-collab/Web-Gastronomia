@@ -14,6 +14,14 @@
   <link rel="stylesheet" href="./src/styles/theme.css" />
   <link rel="stylesheet" href="./src/styles/animations.css" />
   <link rel="stylesheet" href="./src/styles/client.css" />
+  <style>
+    @keyframes popIn { 0% { transform: scale(0); } 70% { transform: scale(1.2); } 100% { transform: scale(1); } }
+    @keyframes fadeInUp { 0% { opacity:0; transform:translateY(20px); } 100% { opacity:1; transform:translateY(0); } }
+    .tracker-step { display:flex; flex-direction:column; align-items:center; flex:1; position:relative; }
+    .tracker-dot { width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.85rem; font-weight:700; z-index:1; transition: all 0.4s ease; }
+    .tracker-label { font-size:0.7rem; color:#888; margin-top:6px; text-align:center; }
+    .tracker-line { flex:1; height:3px; background:#333; margin-top:16px; border-radius:2px; transition: background 0.4s ease; }
+  </style>
 </head>
 <body>
 
@@ -31,9 +39,13 @@
       </div>
       <div class="header-actions">
         <span id="mesaBadge" class="mesa-badge"><span class="dot">●</span> Mesa 1</span>
+        <button class="btn-waiter-header" onclick="toggleMisPedidos()" style="position:relative;">
+          📋 Pedidos <span id="pedidosBadge" style="display:none; background:#ef4444; color:#fff; border-radius:50%; padding:1px 6px; font-size:0.7rem; font-weight:700; position:absolute; top:-4px; right:-4px;">0</span>
+        </button>
         <button class="btn-waiter-header" onclick="toggleWaiterModal(true)">
           🔔 Mozo
         </button>
+
       </div>
       <div id="tiempoEstimado" style="display:none; background:#f97316; color:#fff; padding:6px 14px; border-radius:20px; font-size:0.85rem; font-weight:600; margin-top:8px; text-align:center;">⏱ Estimado: ~15 min</div>
     </header>
@@ -76,6 +88,38 @@
 
   </div> <!-- FIN .app-container -->
 
+  <!-- PANTALLA POST-PEDIDO -->
+  <div id="postOrderScreen" class="modal-overlay" style="position:fixed; inset:0; background:#0f0f1a; z-index:10000; flex-direction:column; padding:20px; overflow-y:auto;">
+    <div style="max-width:420px; margin:0 auto; width:100%; text-align:center; padding-top:40px;">
+      <div id="postOrderCheck" style="width:80px; height:80px; border-radius:50%; background:linear-gradient(135deg,#22c55e,#16a34a); display:flex; align-items:center; justify-content:center; margin:0 auto 20px; font-size:2.5rem; animation: popIn 0.5s ease;">✓</div>
+      <h2 style="color:#fff; font-size:1.5rem; margin-bottom:8px;">¡Pedido Recibido!</h2>
+      <p id="postOrderMesa" style="color:#888; font-size:0.9rem; margin-bottom:24px;"></p>
+
+      <!-- Tracker de estado -->
+      <div style="background:#1e1e2e; border-radius:16px; padding:20px; margin-bottom:20px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+          <span style="color:#888; font-size:0.8rem;">Estado del pedido</span>
+          <span id="postOrderTiempo" style="color:#f97316; font-size:0.85rem; font-weight:600;"></span>
+        </div>
+        <div id="postOrderTracker" style="display:flex; align-items:center; gap:0; margin-bottom:16px;">
+        </div>
+        <p id="postOrderStatusText" style="color:#22c55e; font-size:1.1rem; font-weight:700;"></p>
+      </div>
+
+      <!-- Resumen del pedido -->
+      <div style="background:#1e1e2e; border-radius:16px; padding:20px; margin-bottom:20px; text-align:left;">
+        <h3 style="color:#f97316; font-size:0.95rem; margin-bottom:12px;">📋 Resumen</h3>
+        <div id="postOrderItems" style="display:flex; flex-direction:column; gap:8px;"></div>
+        <div style="border-top:1px solid #27272a; margin-top:12px; padding-top:12px; display:flex; justify-content:space-between;">
+          <span style="color:#888; font-weight:600;">Total</span>
+          <span id="postOrderTotal" style="color:#22c55e; font-weight:800; font-size:1.1rem;"></span>
+        </div>
+      </div>
+
+      <button onclick="volverAlMenu()" style="width:100%; background:#27272a; color:#fff; border:none; padding:14px; border-radius:12px; font-weight:700; font-size:1rem; cursor:pointer;">Volver al Menú</button>
+    </div>
+  </div>
+
   <!-- Modal del Carrito -->
   <div id="cartModal" class="modal-overlay">
     <div class="modal-card">
@@ -112,6 +156,19 @@
             <button class="tip-btn" data-tip="20" onclick="selectTip(20, this)" style="flex:1; padding:6px; border-radius:6px; border:1px solid #3f3f46; background:#18181b; color:#ccc; cursor:pointer; font-size:0.8rem;">20%</button>
           </div>
         </div>
+        <div style="width:100%; margin-bottom:10px;">
+          <p style="color:#a1a1aa; font-size:0.8rem; margin-bottom:6px;">📅 Programar pedido (opcional)</p>
+          <div style="display:flex; gap:6px; align-items:center;">
+            <label style="display:flex; align-items:center; gap:4px; color:#ccc; font-size:0.85rem; cursor:pointer;">
+              <input type="checkbox" id="programarCheck" onchange="toggleProgramarPedido()" style="accent-color:#f97316;">
+              Programar para después
+            </label>
+          </div>
+          <div id="programarFields" style="display:none; margin-top:8px; display:flex; gap:8px; flex-wrap:wrap;">
+            <input type="date" id="programarFecha" style="flex:1; min-width:120px; padding:8px; border-radius:8px; border:1px solid #444; background:#2a2a3e; color:#fff; font-size:0.85rem;">
+            <input type="time" id="programarHora" style="flex:1; min-width:100px; padding:8px; border-radius:8px; border:1px solid #444; background:#2a2a3e; color:#fff; font-size:0.85rem;">
+          </div>
+        </div>
         <button id="sendOrderBtn" class="btn-confirm">Enviar Pedido a Cocina</button>
       </div>
     </div>
@@ -139,6 +196,45 @@
       <button onclick="toggleWaiterModal(false)" class="btn-cancel" style="margin-top:16px; background:transparent; border:none; color:#a1a1aa; cursor:pointer; font-weight:600;">
         Cancelar / Cerrar
       </button>
+    </div>
+  </div>
+
+  <!-- Modal Mis Pedidos -->
+  <div id="misPedidosModal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>📋 Mis Pedidos</h3>
+        <button onclick="toggleMisPedidos()" class="close-btn">&times;</button>
+      </div>
+      <div id="misPedidosList" style="display:flex; flex-direction:column; gap:12px; max-height:60vh; overflow-y:auto; padding:4px 0;">
+        <p style="color:#888; text-align:center; padding:20px;">Cargando...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Lista de Espera -->
+  <div id="listaEsperaModal" class="modal-overlay">
+    <div class="modal-card" style="max-width:380px;">
+      <div class="modal-header">
+        <h3>⏳ Lista de Espera</h3>
+        <button onclick="toggleListaEsperaModal(false)" class="close-btn">&times;</button>
+      </div>
+      <div style="padding:4px 0;">
+        <div id="listaEsperaMiPos" style="display:none; background:#f9731622; border:1px solid #f9731644; border-radius:10px; padding:14px; margin-bottom:14px; text-align:center;">
+          <p style="color:#f97316; font-size:0.85rem; margin-bottom:4px;">Tu posición en la cola</p>
+          <p id="listaEsperaPosNum" style="color:#fff; font-size:2rem; font-weight:800; margin-bottom:4px;">#1</p>
+          <p id="listaEsperaEstimado" style="color:#888; font-size:0.8rem;">Esperando...</p>
+        </div>
+        <div id="listaEsperaForm">
+          <input type="text" id="listaEsperaNombre" placeholder="Tu nombre" style="width:100%; padding:10px; border-radius:8px; border:1px solid #444; background:#2a2a3e; color:#fff; font-size:0.9rem; margin-bottom:8px; box-sizing:border-box;">
+          <div style="display:flex; gap:8px; margin-bottom:8px;">
+            <input type="number" id="listaEsperaPersonas" value="2" min="1" max="20" placeholder="Personas" style="flex:1; padding:10px; border-radius:8px; border:1px solid #444; background:#2a2a3e; color:#fff; font-size:0.9rem; box-sizing:border-box;">
+            <input type="tel" id="listaEsperaTelefono" placeholder="Tel (opcional)" style="flex:1; padding:10px; border-radius:8px; border:1px solid #444; background:#2a2a3e; color:#fff; font-size:0.9rem; box-sizing:border-box;">
+          </div>
+          <button onclick="unirseListaEspera()" style="width:100%; background:#f97316; color:#fff; border:none; padding:12px; border-radius:10px; font-weight:700; font-size:0.95rem; cursor:pointer;">Unirme a la Lista</button>
+        </div>
+        <p id="listaEsperaMsg" style="display:none; color:#22c55e; text-align:center; font-size:0.9rem; margin-top:10px;"></p>
+      </div>
     </div>
   </div>
 
@@ -256,8 +352,143 @@
           el.textContent = `⏱ Estimado: ~${pedido.tiempoEstimado} min`;
           el.style.display = 'block';
         }
+        cargarMisPedidos();
       }
     });
+
+    socket.on('pedido_listo', () => { cargarMisPedidos(); });
+
+    // --- MIS PEDIDOS ---
+    async function cargarMisPedidos() {
+      try {
+        const res = await fetch(`/api/pedidos/mesa/${encodeURIComponent(currentMesa)}`);
+        const pedidos = await res.json();
+        const container = document.getElementById('misPedidosList');
+        const badge = document.getElementById('pedidosBadge');
+
+        if (!pedidos.length) {
+          container.innerHTML = '<p style="color:#888; text-align:center; padding:20px;">No tenés pedidos activos</p>';
+          badge.style.display = 'none';
+          return;
+        }
+
+        badge.textContent = pedidos.length;
+        badge.style.display = 'inline';
+
+        const statusColors = { pendiente: '#eab308', en_preparacion: '#3b82f6', entregado: '#22c55e' };
+        const statusLabels = { pendiente: '📋 Recibido', en_preparacion: '🔥 En Cocina', entregado: '✅ Listo' };
+
+        container.innerHTML = pedidos.map(p => {
+          const color = statusColors[p.estado] || '#888';
+          const label = statusLabels[p.estado] || p.estado;
+          const tiempo = p.tiempoEstimado ? `⏱ ~${p.tiempoEstimado} min` : '';
+          return `
+            <div style="background:#1e1e2e; border-radius:12px; padding:14px; border-left:4px solid ${color};">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <span style="color:${color}; font-weight:700; font-size:0.85rem;">${label}</span>
+                <span style="color:#888; font-size:0.75rem;">${tiempo}</span>
+              </div>
+              ${(p.items || []).map(i => `
+                <div style="display:flex; justify-content:space-between; font-size:0.85rem; padding:3px 0;">
+                  <span style="color:#ccc;">${i.cantidad}x ${i.nombre}</span>
+                  <span style="color:#888;">$${(i.subtotal || i.precioUnitario * i.cantidad || 0).toFixed(2)}</span>
+                </div>
+              `).join('')}
+              <div style="border-top:1px solid #27272a; margin-top:8px; padding-top:8px; display:flex; justify-content:space-between;">
+                <span style="color:#888; font-size:0.85rem;">Total</span>
+                <span style="color:#22c55e; font-weight:700;">$${(p.total || 0).toFixed(2)}</span>
+              </div>
+            </div>
+          `;
+        }).join('');
+      } catch(e) { console.error('Error cargando pedidos:', e); }
+    }
+
+    function toggleMisPedidos() {
+      const modal = document.getElementById('misPedidosModal');
+      const isOpen = modal.classList.contains('active');
+      if (!isOpen) cargarMisPedidos();
+      modal.classList.toggle('active');
+    }
+
+    // --- LISTA DE ESPERA ---
+    function toggleListaEsperaModal(open) {
+      const modal = document.getElementById('listaEsperaModal');
+      if (open) {
+        modal.classList.add('active');
+        cargarMiPosicionLista();
+      } else {
+        modal.classList.remove('active');
+      }
+    }
+
+    // --- PEDIDOS PROGRAMADOS ---
+    function toggleProgramarPedido() {
+      const checked = document.getElementById('programarCheck').checked;
+      const fields = document.getElementById('programarFields');
+      const sendBtn = document.getElementById('sendOrderBtn');
+      if (checked) {
+        fields.style.display = 'flex';
+        const now = new Date();
+        now.setMinutes(now.getMinutes() + 30);
+        document.getElementById('programarFecha').value = now.toISOString().split('T')[0];
+        document.getElementById('programarHora').value = now.toTimeString().slice(0, 5);
+        sendBtn.textContent = '📅 Programar Pedido';
+      } else {
+        fields.style.display = 'none';
+        sendBtn.textContent = 'Enviar Pedido a Cocina';
+      }
+    }
+
+    async function unirseListaEspera() {
+      const nombre = document.getElementById('listaEsperaNombre').value.trim();
+      const personas = parseInt(document.getElementById('listaEsperaPersonas').value) || 2;
+      const telefono = document.getElementById('listaEsperaTelefono').value.trim();
+      if (!nombre) return alert('Ingresá tu nombre');
+
+      try {
+        const res = await fetch('/api/lista-espera', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nombre, personas, telefono })
+        });
+        if (res.ok) {
+          const entry = await res.json();
+          document.getElementById('listaEsperaForm').style.display = 'none';
+          document.getElementById('listaEsperaMiPos').style.display = 'block';
+          document.getElementById('listaEsperaPosNum').textContent = '#1';
+          document.getElementById('listaEsperaEstimado').textContent = 'Te avisamos cuando haya mesa';
+          document.getElementById('listaEsperaMsg').style.display = 'block';
+          document.getElementById('listaEsperaMsg').textContent = '¡Te anotamos! Te notificaremos cuando haya mesa.';
+          localStorage.setItem('lista_espera_id', entry.id);
+        }
+      } catch (e) {
+        alert('Error al conectar');
+      }
+    }
+
+    async function cargarMiPosicionLista() {
+      const myId = localStorage.getItem('lista_espera_id');
+      if (!myId) return;
+      try {
+        const res = await fetch('/api/lista-espera');
+        const lista = await res.json();
+        const myIndex = lista.findIndex(e => e.id === myId && e.estado === 'esperando');
+        if (myIndex >= 0) {
+          document.getElementById('listaEsperaForm').style.display = 'none';
+          document.getElementById('listaEsperaMiPos').style.display = 'block';
+          document.getElementById('listaEsperaPosNum').textContent = `#${myIndex + 1}`;
+          document.getElementById('listaEsperaEstimado').textContent = `${myIndex + 1} persona${myIndex > 0 ? 's' : ''} delante de vos`;
+          document.getElementById('listaEsperaMsg').style.display = 'block';
+          document.getElementById('listaEsperaMsg').textContent = 'Esperando... Te notificaremos cuando haya mesa.';
+        } else {
+          document.getElementById('listaEsperaForm').style.display = 'block';
+          document.getElementById('listaEsperaMiPos').style.display = 'none';
+          document.getElementById('listaEsperaMsg').style.display = 'none';
+          localStorage.removeItem('lista_espera_id');
+        }
+      } catch (e) {}
+    }
 
     function showToast(msg) {
       const toast = document.getElementById('orderReadyToast');
@@ -368,6 +599,7 @@
 
     window.addEventListener('DOMContentLoaded', () => {
       cargarMenuCliente();
+      cargarMisPedidos();
       socket.emit('mesa_viewing', { mesa: currentMesa, active: true });
       setInterval(() => { socket.emit('mesa_viewing', { mesa: currentMesa, active: true }); }, 30000);
     });

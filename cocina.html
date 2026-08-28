@@ -49,7 +49,10 @@
 
   <div id="appMain" style="display:none;">
     <div class="header">
-      <h1>🍳 Cocina</h1>
+      <div style="display:flex; align-items:center; gap:12px;">
+        <h1>🍳 Cocina</h1>
+        <span class="turno-badge" id="turnoBadge" style="display:none; background:#22c55e22; color:#22c55e; padding:4px 10px; border-radius:20px; font-size:0.75rem; font-weight:600;">⏱ 0h 0m</span>
+      </div>
       <div style="display:flex; align-items:center; gap:10px;">
         <span id="pedidoCount" style="color:#888; font-size:0.85rem;">0 pedidos</span>
         <button onclick="location.reload()">🔄 Actualizar</button>
@@ -86,6 +89,7 @@
           currentUser = data;
           document.getElementById('loginOverlay').style.display = 'none';
           document.getElementById('appMain').style.display = 'block';
+          checkMiTurno();
           loadOrders();
         } else {
           document.getElementById('loginError').style.display = 'block';
@@ -100,17 +104,46 @@
       document.getElementById('appMain').style.display = 'none';
     }
 
+    let turnoInicio = null;
+
+    async function checkMiTurno() {
+      if (!authToken) return;
+      try {
+        const res = await fetch('/api/turnos-mozos/mi-turno', { headers: { 'x-auth-token': authToken } });
+        if (res.status === 401) { doLogout(); return; }
+        const data = await res.json();
+        if (data.activo) {
+          turnoInicio = new Date(data.turno.inicio);
+          document.getElementById('turnoBadge').style.display = 'inline';
+          updateTurnoBadge();
+        } else {
+          document.getElementById('turnoBadge').style.display = 'none';
+        }
+      } catch(e) {}
+    }
+
+    function updateTurnoBadge() {
+      if (!turnoInicio) return;
+      const diff = Date.now() - turnoInicio.getTime();
+      const h = Math.floor(diff / 3600000);
+      const m = Math.floor((diff % 3600000) / 60000);
+      document.getElementById('turnoBadge').textContent = `⏱ ${h}h ${m}m`;
+    }
+
+    setInterval(updateTurnoBadge, 60000);
+
     const socket = io();
     socket.on('nuevo_pedido', () => loadOrders());
     socket.on('pedido_actualizado', () => loadOrders());
     socket.on('pedido_listo', () => loadOrders());
+    socket.on('turno_mozo_actualizado', () => checkMiTurno());
 
     async function loadOrders() {
       try {
         const res = await fetch('/api/pedidos', { headers: { 'x-auth-token': authToken } });
         if (res.status === 401) { doLogout(); return; }
         const pedidos = await res.json();
-        const activos = pedidos.filter(p => !p.pagado && p.estado !== 'entregado')
+        const activos = pedidos.filter(p => !p.pagado && p.estado !== 'entregado' && p.estado !== 'programado')
           .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
         const grid = document.getElementById('ordersGrid');
         const noOrders = document.getElementById('noOrders');

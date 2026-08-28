@@ -671,6 +671,15 @@ async function confirmAndSendOrder() {
     estado: 'pendiente'
   };
 
+  const programarCheck = document.getElementById('programarCheck');
+  if (programarCheck && programarCheck.checked) {
+    const fecha = document.getElementById('programarFecha').value;
+    const hora = document.getElementById('programarHora').value;
+    if (fecha && hora) {
+      orderData.fechaProgramada = new Date(`${fecha}T${hora}:00`).toISOString();
+    }
+  }
+
   try {
     const response = await fetch('/api/pedidos', {
       method: 'POST',
@@ -680,24 +689,9 @@ async function confirmAndSendOrder() {
 
     if (response.ok) {
       const result = await response.json();
-      const tiempoMsg = result.tiempoEstimado ? ` Tiempo estimado: ~${result.tiempoEstimado} min` : '';
-      if (typeof showToast === 'function') {
-        showToast(`✅ Pedido enviado.${tiempoMsg}`);
-      } else {
-        alert('¡Pedido enviado con éxito a la cocina!');
-      }
-
-      if (typeof selectedTipPercent !== 'undefined' && selectedTipPercent > 0) {
-        const tipAmount = Math.round(orderData.total * selectedTipPercent / 100 * 100) / 100;
-        await fetch(`/api/pedidos/${result.id}/propina`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ propina: tipAmount })
-        });
-      }
-
       clearCart();
       closeModal();
+      showPostOrderScreen(result);
     } else {
       throw new Error('Servidor indisponible');
     }
@@ -796,4 +790,95 @@ function startWaiterCooldown() {
       if (headerBtn) headerBtn.innerHTML = `🔔 Mozo`;
     }
   }, 1000);
+}
+
+// --- PANTALLA POST-PEDIDO ---
+let postOrderPedidoId = null;
+let postOrderSocket = null;
+
+const STATUS_CONFIG = {
+  pendiente: { label: 'Recibido', icon: '📋', color: '#eab308' },
+  en_preparacion: { label: 'En Cocina', icon: '🔥', color: '#3b82f6' },
+  entregado: { label: 'Listo', icon: '✅', color: '#22c55e' }
+};
+const STATUS_ORDER = ['pendiente', 'en_preparacion', 'entregado'];
+
+function showPostOrderScreen(pedido) {
+  postOrderPedidoId = pedido.id;
+  const screen = document.getElementById('postOrderScreen');
+  screen.classList.add('active');
+
+  document.getElementById('postOrderMesa').textContent = `Mesa ${pedido.mesa || '?'}`;
+
+  const total = pedido.total || 0;
+  document.getElementById('postOrderTotal').textContent = `$${total.toFixed(2)}`;
+
+  const itemsContainer = document.getElementById('postOrderItems');
+  itemsContainer.innerHTML = (pedido.items || []).map(i => `
+    <div style="display:flex; justify-content:space-between; font-size:0.9rem;">
+      <span style="color:#ccc;">${i.cantidad}x ${i.nombre}</span>
+      <span style="color:#888;">$${(i.subtotal || i.precioUnitario * i.cantidad || 0).toFixed(2)}</span>
+    </div>
+  `).join('');
+
+  if (pedido.estado === 'programado' && pedido.fechaProgramada) {
+    document.getElementById('postOrderTiempo').textContent = `📅 ${new Date(pedido.fechaProgramada).toLocaleString('es-AR')}`;
+    document.getElementById('postOrderTracker').innerHTML = `
+      <div style="text-align:center; padding:20px 0;">
+        <div style="font-size:2.5rem; margin-bottom:8px;">📅</div>
+        <p style="color:#f97316; font-size:1.1rem; font-weight:700;">Pedido Programado</p>
+        <p style="color:#888; font-size:0.85rem; margin-top:4px;">Se enviará a cocina automáticamente</p>
+      </div>`;
+    document.getElementById('postOrderStatusText').textContent = 'Programado';
+    document.getElementById('postOrderStatusText').style.color = '#f97316';
+  } else {
+    if (pedido.tiempoEstimado) {
+      document.getElementById('postOrderTiempo').textContent = `⏱ ~${pedido.tiempoEstimado} min`;
+    }
+    updatePostOrderTracker(pedido.estado || 'pendiente');
+  }
+
+  if (!postOrderSocket) {
+    postOrderSocket = io();
+    postOrderSocket.on('pedido_actualizado', (data) => {
+      if (data && data.id === postOrderPedidoId) {
+        updatePostOrderTracker(data.estado);
+      }
+    });
+  }
+}
+
+function updatePostOrderTracker(estado) {
+  const currentIdx = STATUS_ORDER.indexOf(estado);
+  const tracker = document.getElementById('postOrderTracker');
+  const statusText = document.getElementById('postOrderStatusText');
+
+  let html = '';
+  STATUS_ORDER.forEach((s, i) => {
+    const cfg = STATUS_CONFIG[s];
+    const isActive = i <= currentIdx;
+    const isCurrent = i === currentIdx;
+
+    if (i > 0) {
+      html += `<div class="tracker-line" style="background:${i <= currentIdx ? cfg.color : '#333'};"></div>`;
+    }
+    html += `
+      <div class="tracker-step">
+        <div class="tracker-dot" style="background:${isActive ? cfg.color : '#333'}; color:${isActive ? '#fff' : '#666'}; box-shadow:${isCurrent ? '0 0 12px ' + cfg.color + '66' : 'none'};">
+          ${cfg.icon}
+        </div>
+        <div class="tracker-label" style="color:${isCurrent ? '#fff' : '#666'}; font-weight:${isCurrent ? '700' : '400'};">${cfg.label}</div>
+      </div>
+    `;
+  });
+  tracker.innerHTML = html;
+
+  const cfg = STATUS_CONFIG[estado] || STATUS_CONFIG.pendiente;
+  statusText.textContent = cfg.label;
+  statusText.style.color = cfg.color;
+}
+
+function volverAlMenu() {
+  document.getElementById('postOrderScreen').classList.remove('active');
+  postOrderPedidoId = null;
 }
